@@ -9,3 +9,4 @@
 //= require rails.js
 //= require common.js
 //= require_tree .
+
