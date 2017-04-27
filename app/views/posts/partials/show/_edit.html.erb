@@ -68,8 +68,8 @@
   <div class="input">
     <%= f.label :source %>
     <%= f.text_field :source %>
-    <%= button_tag "Similar", :id => "similar-button", :type => "button" %>
-    <%= button_tag "Artist", :id => "find-artist-button", :type => "button" %>
+    <%= button_tag "Similar", :class => "btn", :id => "similar-button", :type => "button" %>
+    <%= button_tag "Artist", :class => "btn", :id => "find-artist-button", :type => "button" %>
   </div>
 
   <% if Danbooru.config.iqdbs_server %>
@@ -83,14 +83,14 @@
       <span id="open-edit-dialog" class="ui-icon ui-icon-arrow-1-ne" title="detach" style="display: none;"/>
     </div>
 
-    <%= button_tag "Related tags", :id => "related-tags-button", :type => "button" %>
-    <%= button_tag "Artists", :id => "related-artists-button", :type => "button" %>
-    <%= button_tag "Characters", :id => "related-characters-button", :type => "button" %>
-    <%= button_tag "Copyrights", :id => "related-copyrights-button", :type => "button" %>
+    <%= button_tag "Related tags", :class => "btn", :id => "related-tags-button", :type => "button" %>
+    <%= button_tag "Artists", :class => "btn", :id => "related-artists-button", :type => "button" %>
+    <%= button_tag "Characters", :class => "btn", :id => "related-characters-button", :type => "button" %>
+    <%= button_tag "Copyrights", :class => "btn", :id => "related-copyrights-button", :type => "button" %>
   </div>
 
   <div class="input">
-    <%= submit_tag "Submit", :data => { :disable_with => "Submitting..." } %>
+    <%= submit_tag "Submit", :class => "btn", :data => { :disable_with => "Submitting..." } %>
   </div>
 
   <div id="related-tags-container">
