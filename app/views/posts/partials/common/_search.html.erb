@@ -14,6 +14,9 @@
       <%= hidden_field_tag :random, params[:random] %>
     <% end %>
     <%= hidden_field_tag "ms", "1" %>
-    <%= submit_tag "Go", :name => nil %>
+    <%= content_tag :button, :type => :submit do %>
+	<span class="glyphicon glyphicon-search search-glyph"></span>
+    <% end %>
+    <%#= submit_tag "Go", :name => nil %>
   <% end %>
 </section>
