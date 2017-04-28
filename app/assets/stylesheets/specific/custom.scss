@@ -24,3 +24,22 @@ div#page aside#sidebar input[type=text] {
 #quick-edit-div .btn {
 	margin-top:1em;
 }
+
+
+div.ui-dialog {
+	border:lightgray solid 1px;
+	padding: 0;
+}
+
+
+div.ui-dialog-titlebar {
+	border:none;
+	border-radius:0;
+	background:lightgray;
+
+}
+
+.ui-button {
+	background:none !important;
+	border:none !important;
+}
