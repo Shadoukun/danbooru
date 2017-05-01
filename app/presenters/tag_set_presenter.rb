@@ -128,7 +128,7 @@ private
     else
       itemprop = nil
     end
-    html << %{<a class="search-tag" #{itemprop} href="#{path}?tags=#{u(tag)}">#{h(humanized_tag)}</a> }
+    html << %{<a class="label label-primary search-tag" #{itemprop} href="#{path}?tags=#{u(tag)}">#{h(humanized_tag)}</a> }
 
     unless options[:name_only]
       if counts[tag].to_i >= 10_000

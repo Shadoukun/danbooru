@@ -59,3 +59,16 @@ div.ui-dialog-titlebar {
     display: inline-block;
     margin-bottom: 5px;
 }
+
+li[class^="category-"] {
+    margin-bottom: .5em;
+}
+
+li[class^="category-"] .label {
+    color: white;
+    padding:.3em .7em .4em;
+}
+
+#tag-list ul {
+    margin-top: .5em;
+}
