@@ -104,6 +104,7 @@
 
         pin_button.button("option", "icons", {primary: "ui-icon-pin-w"});
       }
+
     });
 
     dialog.parent().mouseout(function(e) {
@@ -112,6 +113,40 @@
     .mouseover(function(e) {
       dialog.parent().css({"opacity": 1});
     });
+
+    // Bootstrap Tagsinput 4/30/2017
+
+    var tags = dialog.find('#form textarea').val().split(' ');
+
+    dialog.find("textarea").tagsinput({
+        confirmKeys:[32, 9, 13],
+        trimValue: true
+    });
+
+    var $tagsinput = dialog.find(".bootstrap-tagsinput input");
+    $tagsinput.attr("class", "ui-autocomplete-input");
+    $tagsinput.attr("autocomplete", "off");
+    $tagsinput.attr("id", "post_tag_string");
+    Danbooru.Autocomplete.initialize_all();
+
+    $('.bootstrap-tagsinput input').blur(function(e) {
+ 	      $(this).focus();
+    });
+
+    if ( dialog.find("textarea").tagsinput('items') == 0) {
+
+        $.each(tags, function (index, value) {
+	           dialog.find("textarea").tagsinput('add', value);
+           });
+    };
+
+    dialog.find('#form').submit(function(){
+        $('#edit-dialog textarea').val($('#edit-dialog textarea').tagsinput('items').join(' '));
+        console.log($('#edit-dialog textarea').val());
+        return true;
+    });
+
+    // Bootstrap Tagsinput End
 
     $tag_string.css({"resize": "none", "width": "100%"});
     $tag_string.focus().selectEnd().height($tag_string[0].scrollHeight);
@@ -314,7 +349,7 @@
       $image.attr("src", $link.attr("href"));
       $image.css("opacity", "0.25");
       $image.width($image.data("original-width"));
-      $image.height($image.data("original-height"));        
+      $image.height($image.data("original-height"));
       $image.on("load", function() {
         $image.css("opacity", "1");
         $notice.hide();
@@ -336,7 +371,7 @@
           $image.attr("src", $("#image-container").data("large-file-url"));
           $image.css("opacity", "0.25");
           $image.width($image.data("large-width"));
-          $image.height($image.data("large-height")); 
+          $image.height($image.data("large-height"));
           $notice.children().eq(0).show();
           $notice.children().eq(1).hide(); // Loading message
           $image.on("load", function() {
@@ -589,6 +624,9 @@
   }
 })();
 
+
+
 $(document).ready(function() {
   Danbooru.Post.initialize_all();
+
 });

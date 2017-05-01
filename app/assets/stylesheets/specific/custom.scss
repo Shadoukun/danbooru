@@ -43,3 +43,19 @@ div.ui-dialog-titlebar {
 	background:none !important;
 	border:none !important;
 }
+
+.bootstrap-tagsinput {
+	height:10em;
+	width:100%
+}
+
+.bootstrap-tagsinput input {
+	width:auto !important;
+}
+
+.bootstrap-tagsinput .tag {
+    padding: 6px;
+    font-size: 12px;
+    display: inline-block;
+    margin-bottom: 5px;
+}
