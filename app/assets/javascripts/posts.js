@@ -104,6 +104,7 @@
 
         pin_button.button("option", "icons", {primary: "ui-icon-pin-w"});
       }
+
     });
 
     dialog.parent().mouseout(function(e) {
@@ -111,6 +112,28 @@
     })
     .mouseover(function(e) {
       dialog.parent().css({"opacity": 1});
+    });
+    var tags = dialog.find('#form textarea').val().split(' ');
+
+    dialog.find("textarea").tagsinput();
+    var $tagsinput = dialog.find(".bootstrap-tagsinput input");
+    $tagsinput.attr("class", "ui-autocomplete-input");
+    $tagsinput.attr("autocomplete", "off");
+    $tagsinput.attr("id", "post_tag_string");
+    Danbooru.Autocomplete.initialize_all();
+   
+    $('.bootstrap-tagsinput input').blur(function(e) {
+ 	$(this).focus();
+    });
+
+    $.each(tags, function (index, value) {
+	dialog.find("textarea").tagsinput('add', value);
+    });
+	
+    dialog.find('#form').submit(function(){
+    $('#edit-dialog textarea').val($('#edit-dialog textarea').tagsinput('items').join(' '));
+    console.log($('#edit-dialog textarea').val());
+    return true;
     });
 
     $tag_string.css({"resize": "none", "width": "100%"});
@@ -589,6 +612,9 @@
   }
 })();
 
+
+
 $(document).ready(function() {
   Danbooru.Post.initialize_all();
+
 });
