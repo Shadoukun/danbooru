@@ -45,9 +45,8 @@ div.ui-dialog-titlebar {
 }
 
 .bootstrap-tagsinput {
-	height:10em;
+	min-height:10em;
 	width:100%;
-	overflow-y: scroll;
 }
 
 .bootstrap-tagsinput input {
@@ -71,5 +70,15 @@ li[class^="category-"] .label {
 }
 
 #tag-list ul {
-    margin-top: .5em;
+    margin-top: 5px;
+}
+
+.tag-container {
+    display: inline-flex;
+    max-width: 11em;
+}
+
+.tag-container .label {
+    white-space: initial;
+    text-align: left;
 }
