@@ -39,6 +39,7 @@
       $(window).scrollTop($("#image").offset().top);
       Danbooru.Post.open_edit_dialog();
       e.preventDefault();
+
     });
 
     $("#toggle-related-tags-link").click(function(e) {
@@ -146,10 +147,10 @@
         return true;
     });
 
+    $tagsinput.css({"resize": "none", "width": "100%"});
+    $tagsinput.focus().selectEnd().height($tagsinput.scrollHeight);
     // Bootstrap Tagsinput End
 
-    $tag_string.css({"resize": "none", "width": "100%"});
-    $tag_string.focus().selectEnd().height($tag_string[0].scrollHeight);
 
     var $image = $("#c-uploads .ui-wrapper #image, #c-uploads .ui-wrapper:has(#image)");
     $image.height($image.resizable("option", "maxHeight"));
@@ -630,3 +631,4 @@ $(document).ready(function() {
   Danbooru.Post.initialize_all();
 
 });
+
