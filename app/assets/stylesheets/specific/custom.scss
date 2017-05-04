@@ -61,12 +61,11 @@ div.ui-dialog-titlebar {
 }
 
 li[class^="category-"] {
-    margin-bottom: .5em;
+    margin-bottom: 4px;
 }
 
 li[class^="category-"] .label {
     color: white;
-    padding:.3em .7em .4em;
 }
 
 #tag-list ul {
@@ -75,10 +74,26 @@ li[class^="category-"] .label {
 
 .tag-container {
     display: inline-flex;
-    max-width: 11em;
+    max-width: 175px;
 }
 
 .tag-container .label {
     white-space: initial;
     text-align: left;
+}
+
+
+.category-1 .label {
+    background: #bc3c39;
+}
+.category-4 .label {
+    background: #52b052;
+}
+.category-3 .label {
+    background: #b637b6;
+}
+
+.post-count {
+    align-self:center;
+    margin-left:5px !important;
 }

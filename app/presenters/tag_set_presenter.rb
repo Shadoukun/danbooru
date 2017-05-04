@@ -128,7 +128,7 @@ private
     else
       itemprop = nil
     end
-    html << %{<a class="label label-primary search-tag" #{itemprop} href="#{path}?tags=#{u(tag)}">#{h(humanized_tag)}</a> }
+    html << %{<div class="tag-container"><a class="label label-primary search-tag" #{itemprop} href="#{path}?tags=#{u(tag)}">#{h(humanized_tag)}</a> }
 
     unless options[:name_only]
       if counts[tag].to_i >= 10_000
@@ -143,7 +143,7 @@ private
       klass = "post-count#{is_underused_tag ? " low-post-count" : ""}"
       title = "New general tag detected. Check the spelling or populate it now."
 
-      html << %{<span class="#{klass}"#{is_underused_tag ? " title='#{title}'" : ""}>#{post_count}</span>}
+      html << %{<span class="#{klass}"#{is_underused_tag ? " title='#{title}'" : ""}>#{post_count}</span></div>}
     end
 
     html << "</li>"
