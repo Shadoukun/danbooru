@@ -141,6 +141,13 @@
            });
     };
 
+    $tagsinput.keypress(function(event) {
+        if (event.which == 13) {
+            console.log('enter')
+            $("#form input[type=submit]").click();
+        }
+    });
+
     dialog.find('#form').submit(function(){
         $('#edit-dialog textarea').val($('#edit-dialog textarea').tagsinput('items').join(' '));
         console.log($('#edit-dialog textarea').val());
@@ -631,4 +638,3 @@ $(document).ready(function() {
   Danbooru.Post.initialize_all();
 
 });
-
