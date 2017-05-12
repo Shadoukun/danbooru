@@ -8,11 +8,11 @@
 
     if ($("#c-posts").length) {
       this.initialize_shortcuts();
+      this.initialize_saved_searches();
     }
 
     if ($("#c-posts").length && $("#a-index").length) {
       this.initialize_excerpt();
-      this.initialize_saved_searches();
     }
 
     if ($("#c-posts").length && $("#a-show").length) {
@@ -39,7 +39,6 @@
       $(window).scrollTop($("#image").offset().top);
       Danbooru.Post.open_edit_dialog();
       e.preventDefault();
-
     });
 
     $("#toggle-related-tags-link").click(function(e) {
@@ -105,8 +104,10 @@
 
         pin_button.button("option", "icons", {primary: "ui-icon-pin-w"});
       }
-
     });
+
+    // Bootstrap Tagsinput 5/5/2017
+
 
     dialog.parent().mouseout(function(e) {
       dialog.parent().css({"opacity": 0.6});
@@ -115,53 +116,8 @@
       dialog.parent().css({"opacity": 1});
     });
 
-    // Bootstrap Tagsinput 4/30/2017
-
-    var tags = dialog.find('#form textarea').val().split(' ');
-
-    dialog.find("textarea").tagsinput({
-        confirmKeys:[32, 9, 13],
-        trimValue: true
-    });
-
-    var $tagsinput = dialog.find(".bootstrap-tagsinput input");
-    $tagsinput.attr("class", "ui-autocomplete-input");
-    $tagsinput.attr("autocomplete", "off");
-    $tagsinput.attr("id", "post_tag_string");
-    Danbooru.Autocomplete.initialize_all();
-
-    $('.bootstrap-tagsinput input').blur(function(e) {
- 	      $(this).focus();
-    });
-
-    if ( dialog.find("textarea").tagsinput('items') == 0) {
-
-        $.each(tags, function (index, value) {
-	           dialog.find("textarea").tagsinput('add', value);
-           });
-    };
-
-    $tagsinput.keypress(function(event) {
-        if (event.which == 13) {
-            console.log('enter')
-            $("#form input[type=submit]").click();
-        }
-    });
-
-    dialog.find('#form').submit(function(){
-        $('#edit-dialog textarea').val($('#edit-dialog textarea').tagsinput('items').join(' '));
-        console.log($('#edit-dialog textarea').val());
-        return true;
-    });
-
-    $tagsinput.css({"resize": "none", "width": "100%"});
-    $tagsinput.focus().selectEnd().height($tagsinput.scrollHeight);
-    // Bootstrap Tagsinput End
-
-
-    var $image = $("#c-uploads .ui-wrapper #image, #c-uploads .ui-wrapper:has(#image)");
-    $image.height($image.resizable("option", "maxHeight"));
-    $image.width($image.resizable("option", "maxWidth"));
+    // $tag_string.css({"resize": "none", "width": "100%"});
+    //$tag_string.focus().selectEnd().height($tag_string[0].scrollHeight);
   }
 
   Danbooru.Post.close_edit_dialog = function(e, ui) {
@@ -222,19 +178,8 @@
 
       Danbooru.keydown("a", "prev_page", Danbooru.Post.nav_prev);
       Danbooru.keydown("d", "next_page", Danbooru.Post.nav_next);
-
-      Danbooru.keydown("f", "favorite", function(e) {
-        if ($("#add-to-favorites").is(":visible")) {
-          $("#add-to-favorites").click();
-        } else {
-          if (Danbooru.meta("current-user-id") == "") {
-            Danbooru.notice("You must be logged in to favorite posts");
-          } else {
-            Danbooru.notice("You have already favorited this post");
-          }
-        }
-        e.preventDefault();
-      });
+      Danbooru.keydown("f", "favorite", Danbooru.Post.favorite);
+      Danbooru.keydown("shift+f", "unfavorite", Danbooru.Post.unfavorite);
     }
   }
 
@@ -394,33 +339,35 @@
     }
   }
 
-  Danbooru.Post.initialize_post_image_resize_to_window_link = function() {
-    $("#image-resize-to-window-link").click(function(e) {
-      var $img = $("#image");
-
-      if (($img.data("scale-factor") === 1) || ($img.data("scale-factor") === undefined)) {
-        if ($(window).width() > 660) {
-          var client_width = $(window).width() - $("#sidebar").width() - 75;
-        } else {
-          var client_width = $(window).width() - 30;
-        }
-        var client_height = $(window).height();
-
-        if ($img.width() > client_width) {
-          var ratio = client_width / $img.data("original-width");
-          $img.data("scale-factor", ratio);
-          $img.css("width", $img.data("original-width") * ratio);
-          $img.css("height", $img.data("original-height") * ratio);
-          Danbooru.Post.resize_ugoira_controls();
-        }
+  Danbooru.Post.resize_image_to_window = function($img) {
+    if (($img.data("scale-factor") === 1) || ($img.data("scale-factor") === undefined)) {
+      if ($(window).width() > 660) {
+        var client_width = $(window).width() - $("#sidebar").width() - 75;
       } else {
-        $img.data("scale-factor", 1);
-        $img.width($img.data("original-width"));
-        $img.height($img.data("original-height"));
+        var client_width = $(window).width() - 30;
+      }
+      var client_height = $(window).height();
+
+      if ($img.width() > client_width) {
+        var ratio = client_width / $img.data("original-width");
+        $img.data("scale-factor", ratio);
+        $img.css("width", $img.data("original-width") * ratio);
+        $img.css("height", $img.data("original-height") * ratio);
         Danbooru.Post.resize_ugoira_controls();
       }
+    } else {
+      $img.data("scale-factor", 1);
+      $img.width($img.data("original-width"));
+      $img.height($img.data("original-height"));
+      Danbooru.Post.resize_ugoira_controls();
+    }
 
-      Danbooru.Note.Box.scale_all();
+    Danbooru.Note.Box.scale_all();
+  }
+
+  Danbooru.Post.initialize_post_image_resize_to_window_link = function() {
+    $("#image-resize-to-window-link").click(function(e) {
+      Danbooru.Post.resize_image_to_window($("#image"));
       e.preventDefault();
     });
   }
@@ -582,19 +529,39 @@
     });
   }
 
+  Danbooru.Post.favorite = function (e) {
+    if ($("#add-to-favorites").is(":visible")) {
+      $("#add-to-favorites").click();
+    } else {
+      if (Danbooru.meta("current-user-id") == "") {
+        Danbooru.notice("You must be logged in to favorite posts");
+      } else {
+        Danbooru.notice("You have already favorited this post");
+      }
+    }
+  };
+
+  Danbooru.Post.unfavorite = function (e) {
+    $.ajax("/favorites/" + Danbooru.meta("post-id") + ".js", {
+      type: "DELETE"
+    });
+  };
+
   Danbooru.Post.initialize_saved_searches = function() {
-    $("#saved_search_category").autocomplete({
-      minLength: 1,
+    $("#saved_search_labels").autocomplete({
+      minLength: 2,
       source: function(req, resp) {
         $.ajax({
-          url: "/saved_searches/categories.json",
+          url: "/saved_searches/labels.json",
+          data: {
+            label: req.term
+          },
           method: "get",
           success: function(data) {
             resp($.map(data, function(saved_search) {
-              var category = saved_search.category === null ? "uncategorized" : saved_search.category;
               return {
-                label: category,
-                value: category
+                label: saved_search.replace(/_/g, " "),
+                value: saved_search
               };
             }));
           }
@@ -617,8 +584,8 @@
       }
     });
 
-    $("#save-search").click(function() {
-      if (Danbooru.meta("disable-categorized-saved-searches") === "false") {
+    $("#save-search").click(function(e) {
+      if (Danbooru.meta("disable-labeled-saved-searches") === "false") {
         $("#save-search-dialog").dialog("open");
       } else {
         $.post(
@@ -628,7 +595,41 @@
           }
         );
       }
+
+      e.preventDefault();
     });
+
+    $("#search-dropdown #wiki-search").click(function(e) {
+      window.location.href = "/wiki_pages?search%5Btitle%5D=" + encodeURIComponent($("#tags").val());
+      e.preventDefault();
+    });
+
+    $("#search-dropdown #artist-search").click(function(e) {
+      window.location.href = "/artists?search%5Bname%5D=" + encodeURIComponent($("#tags").val());
+      e.preventDefault();
+    });
+  }
+
+  Danbooru.Post.initialize_tokenfield = function() {
+      var $textarea = $("#form textarea");
+      var $tags = $textarea.val().split(' ');
+      console.log($tags);
+      console.log($textarea.val());
+      $textarea.tokenfield();
+      $textarea.tokenfield('setTokens', $tags);
+      $("#form .tokenfield").attr("class", "tokenfield");
+      var $tagsinput = $("#form .tokenfield .token-input");
+      $tagsinput.attr("class", "token-input ui-autocomplete-input");
+      $tagsinput.attr("autocomplete", "off");
+      $tagsinput.attr("id", "post_tag_string");
+      Danbooru.Autocomplete.initialize_all();
+
+      $('#form').submit(function(){
+          $('#form textarea').val($textarea.tokenfield("getTokensList", ' '));
+          console.log($('#form textarea').val());
+          return true;
+      });
+
   }
 })();
 
@@ -636,5 +637,7 @@
 
 $(document).ready(function() {
   Danbooru.Post.initialize_all();
+  Danbooru.Post.initialize_tokenfield();
+
 
 });

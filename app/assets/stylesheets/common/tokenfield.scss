@@ -1,0 +1,40 @@
+.token-input {
+    width: auto !important;
+}
+
+.tokenfield .token {
+    border: none;
+    height: auto;
+    background:#337ab7;
+    color:white;
+    padding: 2px;
+    font-size: 12px;
+    font-weight: 700;
+
+
+}
+
+.token a {
+    opacity:100;
+    color: white;
+}
+
+.tokenfield .token.active {
+    background: #51a2e7;
+}
+
+.tokenfield {
+    border: 1px lightgray solid !important;
+    padding: 7px 5px;
+}
+
+.tokenfield.focus {
+    border-color: none !important;
+    -webkit-box-shadow: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.tokenfield:focus, .tokenfield .token-input:focus {
+    outline: none;
+}
