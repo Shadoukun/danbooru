@@ -710,7 +710,20 @@
 
       if (multi) var add = true
 
-      this.$copyHelper.focus()
+      var oldscroll = $(window).scrollTop();
+
+      this.$copyHelper.focus(function() {
+          $(window).scrollTop(oldscroll);
+
+      })
+
+      this.$copyHelper.focus(function() {
+          var oldscroll = $(window).scrollTop();
+          $(window).scrollTop(oldscroll);
+
+      })
+
+      this.$copyHelper.focus();
 
       if (!add) {
         this.$wrapper.find('.active').removeClass('active')

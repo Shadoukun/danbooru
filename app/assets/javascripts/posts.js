@@ -624,6 +624,7 @@
       $tagsinput.attr("id", "post_tag_string");
       Danbooru.Autocomplete.initialize_all();
 
+
       $('#form').submit(function(){
           $('#form textarea').val($textarea.tokenfield("getTokensList", ' '));
           console.log($('#form textarea').val());
