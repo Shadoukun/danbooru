@@ -37,6 +37,11 @@ module PostSets
       end
     end
 
+    def tag
+      return nil if !is_single_tag?
+      @tag ||= Tag.find_by(name: Tag.normalize_name(tag_string))
+    end
+
     def has_artist?
       is_single_tag? && artist.present? && artist.visible?
     end
@@ -75,6 +80,18 @@ module PostSets
 
     def has_explicit?
       posts.any? {|x| x.rating == "e"}
+    end
+
+    def hidden_posts
+      posts.select { |p| !p.visible? }
+    end
+
+    def banned_posts
+      posts.select(&:is_banned?)
+    end
+
+    def censored_posts
+      hidden_posts - banned_posts
     end
 
     def use_sequential_paginator?
@@ -149,20 +166,8 @@ module PostSets
       [page.to_i, 1].max
     end
 
-    def is_tag_subscription?
-      tag_subscription.present?
-    end
-
     def is_saved_search?
       tag_string =~ /search:/
-    end
-
-    def tag_subscription
-      @tag_subscription ||= tag_array.select {|x| x =~ /^sub:/}.map {|x| x.sub(/^sub:/, "")}.first
-    end
-
-    def tag_subscription_tags
-      @tag_subscription_tags ||= TagSubscription.find_tags(tag_subscription)
     end
 
     def presenter

@@ -2,13 +2,25 @@
 class PopularSearchService
   attr_reader :date, :scale
 
+  def self.enabled?
+    Danbooru.config.reportbooru_server.present?
+  end
+
   def initialize(date, scale)
+    if !PopularSearchService.enabled?
+      raise NotImplementedError.new("the Reportbooru service isn't configured. Popular searches are not available.")
+    end
+
     @date = date
     @scale = scale
   end
 
   def each_search(limit = 100, &block)
     fetch_data.to_s.scan(/(.+?) (\d+)\.0\n/).slice(0, limit).each(&block)
+  end
+
+  def tags
+    fetch_data.to_s.scan(/(.+?) (\d+)\.0\n/).map {|x| x[0]}
   end
 
   def fetch_data
@@ -26,6 +38,6 @@ class PopularSearchService
         end
       end
       response
-    end.force_encoding("utf-8")
+    end.to_s.force_encoding("utf-8")
   end
 end

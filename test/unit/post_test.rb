@@ -1,10 +1,12 @@
 require 'test_helper'
 require 'helpers/pool_archive_test_helper'
 require 'helpers/saved_search_test_helper'
+require 'helpers/iqdb_test_helper'
 
 class PostTest < ActiveSupport::TestCase
   include PoolArchiveTestHelper
   include SavedSearchTestHelper
+  include IqdbTestHelper
 
   def assert_tag_match(posts, query)
     assert_equal(posts.map(&:id), Post.tag_match(query).pluck(:id))
@@ -18,7 +20,6 @@ class PostTest < ActiveSupport::TestCase
     end
     CurrentUser.user = @user
     CurrentUser.ip_addr = "127.0.0.1"
-    MEMCACHE.flush_all
     mock_saved_search_service!
   end
 
@@ -350,9 +351,8 @@ class PostTest < ActiveSupport::TestCase
         end
 
         should "create a mod action" do
-          assert_difference("ModAction.count", 1) do
-            @post.undelete!
-          end
+          @post.undelete!
+          assert_equal("undeleted post ##{@post.id}", ModAction.last.description)
         end
       end
 
@@ -363,9 +363,8 @@ class PostTest < ActiveSupport::TestCase
         end
 
         should "create a mod action" do
-          assert_difference("ModAction.count", 1) do
-            @post.approve!
-          end
+          @post.approve!
+          assert_equal("undeleted post ##{@post.id}", ModAction.last.description)
         end
       end
 
@@ -412,38 +411,29 @@ class PostTest < ActiveSupport::TestCase
         end
 
         should "not allow person X to approve that post" do
-          assert_raises(Post::ApprovalError) do
-            CurrentUser.scoped(@post.uploader, "127.0.0.1") do
-              @post.approve!
-            end
-          end
+          approval = @post.approve!(@post.uploader)
 
-          assert_equal(["You cannot approve a post you uploaded"], @post.errors.full_messages)
+          assert(@post.invalid?)
+          assert_includes(approval.errors.full_messages, "You cannot approve a post you uploaded")
         end
       end
 
       context "that was previously approved by person X" do
         setup do
-          @user = FactoryGirl.create(:janitor_user, :name => "xxx")
-          @user2 = FactoryGirl.create(:janitor_user, :name => "yyy")
+          @user = FactoryGirl.create(:moderator_user, :name => "xxx")
+          @user2 = FactoryGirl.create(:moderator_user, :name => "yyy")
           @post = FactoryGirl.create(:post, :approver_id => @user.id)
           @post.flag!("bad")
         end
 
         should "not allow person X to reapprove that post" do
-          CurrentUser.scoped(@user, "127.0.0.1") do
-            assert_raises(Post::ApprovalError) do
-              @post.approve!
-            end
-          end
+          approval = @post.approve!(@user)
+          assert_includes(approval.errors.full_messages, "You have previously approved this post and cannot approve it again")
         end
 
         should "allow person Y to approve the post" do
-          CurrentUser.scoped(@user2, "127.0.0.1") do
-            assert_nothing_raised do
-              @post.approve!
-            end
-          end
+          @post.approve!(@user2)
+          assert(@post.valid?)
         end
       end
 
@@ -479,9 +469,8 @@ class PostTest < ActiveSupport::TestCase
       end
 
       should "not allow approval" do
-        assert_raises(Post::ApprovalError) do
-          @post.approve!
-        end
+        approval = @post.approve!
+        assert_includes(approval.errors.full_messages, "Post is locked and cannot be approved")
       end
     end
   end
@@ -1372,9 +1361,9 @@ class PostTest < ActiveSupport::TestCase
 
         should "normalize deviantart links" do
           @post.source = "http://fc06.deviantart.net/fs71/f/2013/295/d/7/you_are_already_dead__by_mar11co-d6rgm0e.jpg"
-          assert_equal("http://mar11co.deviantart.com/gallery/#/d6rgm0e", @post.normalized_source)
+          assert_equal("http://mar11co.deviantart.com/art/You-Are-Already-Dead-408921710", @post.normalized_source)
           @post.source = "http://fc00.deviantart.net/fs71/f/2013/337/3/5/35081351f62b432f84eaeddeb4693caf-d6wlrqs.jpg"
-          assert_equal("http://deviantart.com/gallery/#/d6wlrqs", @post.normalized_source)
+          assert_equal("http://deviantart.com/deviation/417560500", @post.normalized_source)
         end
 
         should "normalize karabako links" do
@@ -1420,45 +1409,34 @@ class PostTest < ActiveSupport::TestCase
     context "Removing a post from a user's favorites" do
       setup do
         @user = FactoryGirl.create(:contributor_user)
-        CurrentUser.user = @user
-        CurrentUser.ip_addr = "127.0.0.1"
         @post = FactoryGirl.create(:post)
         @post.add_favorite!(@user)
         @user.reload
       end
 
-      teardown do
-        CurrentUser.user = nil
-        CurrentUser.ip_addr = nil
-      end
-
       should "decrement the user's favorite_count" do
         assert_difference("@user.favorite_count", -1) do
           @post.remove_favorite!(@user)
-          @user.reload
         end
       end
 
       should "decrement the post's score for gold users" do
-        @post.remove_favorite!(@user)
-        @post.reload
-        assert_equal(0, @post.score)
+        assert_difference("@post.score", -1) do
+          @post.remove_favorite!(@user)
+        end
       end
 
       should "not decrement the post's score for basic users" do
         @member = FactoryGirl.create(:user)
-        CurrentUser.scoped(@member, "127.0.0.1") do
-          @post.remove_favorite!(@member)
-        end
-        @post.reload
-        assert_equal(1, @post.score)
+
+        assert_no_difference("@post.score") { @post.add_favorite!(@member) }
+        assert_no_difference("@post.score") { @post.remove_favorite!(@member) }
       end
 
       should "not decrement the user's favorite_count if the user did not favorite the post" do
         @post2 = FactoryGirl.create(:post)
-        assert_difference("@user.favorite_count", 0) do
+        assert_no_difference("@user.favorite_count") do
           @post2.remove_favorite!(@user)
-          @user.reload
         end
       end
     end
@@ -1466,14 +1444,7 @@ class PostTest < ActiveSupport::TestCase
     context "Adding a post to a user's favorites" do
       setup do
         @user = FactoryGirl.create(:contributor_user)
-        CurrentUser.user = @user
-        CurrentUser.ip_addr = "127.0.0.1"
         @post = FactoryGirl.create(:post)
-      end
-
-      teardown do
-        CurrentUser.user = nil
-        CurrentUser.ip_addr = nil
       end
 
       should "periodically clean the fav_string" do
@@ -1486,24 +1457,19 @@ class PostTest < ActiveSupport::TestCase
       end
 
       should "increment the user's favorite_count" do
-        assert_difference("CurrentUser.favorite_count", 1) do
+        assert_difference("@user.favorite_count", 1) do
           @post.add_favorite!(@user)
-          CurrentUser.reload
         end
       end
 
       should "increment the post's score for gold users" do
         @post.add_favorite!(@user)
-        @post.reload
         assert_equal(1, @post.score)
       end
 
       should "not increment the post's score for basic users" do
         @member = FactoryGirl.create(:user)
-        CurrentUser.scoped(@member, "127.0.0.1") do
-          @post.add_favorite!(@member)
-        end
-        @post.reload
+        @post.add_favorite!(@member)
         assert_equal(0, @post.score)
       end
 
@@ -1527,6 +1493,42 @@ class PostTest < ActiveSupport::TestCase
         @post.reload
         assert_equal("", @post.fav_string)
         assert(!Favorite.exists?(:user_id => @user.id, :post_id => @post.id))
+      end
+    end
+
+    context "Moving favorites to a parent post" do
+      setup do
+        @parent = FactoryGirl.create(:post)
+        @child = FactoryGirl.create(:post, parent: @parent)
+
+        @user1 = FactoryGirl.create(:user, enable_privacy_mode: true)
+        @gold1 = FactoryGirl.create(:gold_user)
+        @supervoter1 = FactoryGirl.create(:user, is_super_voter: true)
+
+        @child.add_favorite!(@user1)
+        @child.add_favorite!(@gold1)
+        @child.add_favorite!(@supervoter1)
+        @parent.add_favorite!(@supervoter1)
+
+        @child.give_favorites_to_parent
+        @child.reload
+        @parent.reload
+      end
+
+      should "move the favorites" do
+        assert_equal(0, @child.fav_count)
+        assert_equal(0, @child.favorites.count)
+        assert_equal("", @child.fav_string)
+        assert_equal([], @child.favorites.pluck(:user_id))
+
+        assert_equal(3, @parent.fav_count)
+        assert_equal(3, @parent.favorites.count)
+      end
+
+      should "create a vote for each user who can vote" do
+        assert(@parent.votes.where(user: @gold1).exists?)
+        assert(@parent.votes.where(user: @supervoter1).exists?)
+        assert_equal(4, @parent.score)
       end
     end
   end
@@ -1582,6 +1584,129 @@ class PostTest < ActiveSupport::TestCase
         assert_equal(user2.id, post.uploader_id)
         assert_equal(user2.id, post.uploader_id)
         assert_equal(user2.name, post.uploader_name)
+      end
+    end
+  end
+
+  context "Replacing: " do
+    setup do
+      mock_iqdb_service!
+      Delayed::Worker.delay_jobs = true                    # don't delete the old images right away
+      Danbooru.config.stubs(:use_s3_proxy?).returns(false) # don't fail on post ids < 10000
+
+      @system = FactoryGirl.create(:user, created_at: 2.weeks.ago)
+      Danbooru.config.stubs(:system_user).returns(@system)
+
+      @uploader = FactoryGirl.create(:user, created_at: 2.weeks.ago, can_upload_free: true)
+      @replacer = FactoryGirl.create(:user, created_at: 2.weeks.ago, can_approve_posts: true)
+      CurrentUser.user = @replacer
+      CurrentUser.ip_addr = "127.0.0.1"
+
+      CurrentUser.scoped(@uploader, "127.0.0.2") do
+        upload = FactoryGirl.create(:jpg_upload, as_pending: "0")
+        upload.process!
+        @post = upload.post
+      end
+    end
+
+    teardown do
+      Delayed::Worker.delay_jobs = false
+    end
+
+    context "replacing a post from a generic source" do
+      setup do
+        @post.update(source: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png")
+        @post.replace!("https://www.google.com/intl/en_ALL/images/logo.gif")
+        @upload = Upload.last
+        @mod_action = ModAction.last
+      end
+
+      context "that is then undone" do
+        setup do
+          Timecop.travel(Time.now + PostReplacement::DELETION_GRACE_PERIOD + 1.day) do
+            Delayed::Worker.new.work_off
+          end
+
+          @replacement = @post.replacements.first
+          @replacement.undo!
+          @post.reload
+        end
+
+        should "update the attributes" do
+          assert_equal(272, @post.image_width)
+          assert_equal(92, @post.image_height)
+          assert_equal(5969, @post.file_size)
+          assert_equal("png", @post.file_ext)
+          assert_equal("8f9327db2597fa57d2f42b4a6c5a9855", @post.md5)
+          assert_equal("8f9327db2597fa57d2f42b4a6c5a9855", Digest::MD5.file(@post.file_path).hexdigest)
+          assert_equal("https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png", @post.source)
+        end
+      end
+
+      should "create a post replacement record" do
+        assert_equal(@post.id, PostReplacement.last.post_id)
+      end
+
+      should "correctly update the attributes" do
+        assert_equal(@post.id, @upload.post.id)
+        assert_equal("completed", @upload.status)
+
+        assert_equal(276, @post.image_width)
+        assert_equal(110, @post.image_height)
+        assert_equal(8558, @post.file_size)
+        assert_equal("gif", @post.file_ext)
+        assert_equal("e80d1c59a673f560785784fb1ac10959", @post.md5)
+        assert_equal("e80d1c59a673f560785784fb1ac10959", Digest::MD5.file(@post.file_path).hexdigest)
+        assert_equal("https://www.google.com/intl/en_ALL/images/logo.gif", @post.source)
+      end
+
+      should "not change the post status or uploader" do
+        assert_equal("127.0.0.2", @post.uploader_ip_addr.to_s)
+        assert_equal(@uploader.id, @post.uploader_id)
+        assert_equal(false, @post.is_pending)
+      end
+
+      should "log a mod action" do
+        assert_match(/replaced post ##{@post.id}/, @mod_action.description)
+      end
+
+      should "leave a system comment" do
+        comment = @post.comments.last
+
+        assert_not_nil(comment)
+        assert_equal(User.system.id, comment.creator_id)
+        assert_match(/@#{@replacer.name} replaced this post/, comment.body)
+      end
+    end
+
+    context "replacing a post with a pixiv html source" do
+      should "replace with the full size image" do
+        @post.replace!("https://www.pixiv.net/member_illust.php?mode=medium&illust_id=62247350")
+
+        assert_equal(80, @post.image_width)
+        assert_equal(82, @post.image_height)
+        assert_equal(16275, @post.file_size)
+        assert_equal("png", @post.file_ext)
+        assert_equal("4ceadc314938bc27f3574053a3e1459a", @post.md5)
+        assert_equal("4ceadc314938bc27f3574053a3e1459a", Digest::MD5.file(@post.file_path).hexdigest)
+        assert_equal("https://i.pximg.net/img-original/img/2017/04/04/08/54/15/62247350_p0.png", @post.source)
+      end
+
+      should "delete the old files after three days" do
+        old_file_path, old_preview_file_path, old_large_file_path = @post.file_path, @post.preview_file_path, @post.large_file_path
+        @post.replace!("https://www.pixiv.net/member_illust.php?mode=medium&illust_id=62247350")
+
+        assert(File.exists?(old_file_path))
+        assert(File.exists?(old_preview_file_path))
+        assert(File.exists?(old_large_file_path))
+
+        Timecop.travel(Time.now + PostReplacement::DELETION_GRACE_PERIOD + 1.day) do
+          Delayed::Worker.new.work_off
+        end
+
+        assert_not(File.exists?(old_file_path))
+        assert_not(File.exists?(old_preview_file_path))
+        assert_not(File.exists?(old_large_file_path))
       end
     end
   end
@@ -1786,6 +1911,24 @@ class PostTest < ActiveSupport::TestCase
       assert_tag_match([posts[2]], "approver:none")
     end
 
+    should "return posts for the commenter:<name> metatag" do
+      users = FactoryGirl.create_list(:user, 2, created_at: 2.weeks.ago)
+      posts = FactoryGirl.create_list(:post, 2)
+      comms = users.zip(posts).map { |u, p| FactoryGirl.create(:comment, creator: u, post: p) }
+
+      assert_tag_match([posts[0]], "commenter:#{users[0].name}")
+      assert_tag_match([posts[1]], "commenter:#{users[1].name}")
+    end
+
+    should "return posts for the commenter:<any|none> metatag" do
+      posts = FactoryGirl.create_list(:post, 2)
+      FactoryGirl.create(:comment, post: posts[0], is_deleted: false)
+      FactoryGirl.create(:comment, post: posts[1], is_deleted: true)
+
+      assert_tag_match([posts[0]], "commenter:any")
+      assert_tag_match([posts[1]], "commenter:none")
+    end
+
     should "return posts for the noter:<name> metatag" do
       users = FactoryGirl.create_list(:user, 2)
       posts = FactoryGirl.create_list(:post, 2)
@@ -1793,6 +1936,15 @@ class PostTest < ActiveSupport::TestCase
 
       assert_tag_match([posts[0]], "noter:#{users[0].name}")
       assert_tag_match([posts[1]], "noter:#{users[1].name}")
+    end
+
+    should "return posts for the noter:<any|none> metatag" do
+      posts = FactoryGirl.create_list(:post, 2)
+      FactoryGirl.create(:note, post: posts[0], is_active: true)
+      FactoryGirl.create(:note, post: posts[1], is_active: false)
+
+      assert_tag_match([posts[0]], "noter:any")
+      assert_tag_match([posts[1]], "noter:none")
     end
 
     should "return posts for the artcomm:<name> metatag" do
@@ -1951,8 +2103,8 @@ class PostTest < ActiveSupport::TestCase
     should "return posts for a search:<category> metatag" do
       post1 = FactoryGirl.create(:post, tag_string: "aaa")
       post2 = FactoryGirl.create(:post, tag_string: "bbb")
-      FactoryGirl.create(:saved_search, tag_query: "aaa", category: "zzz", user: CurrentUser.user)
-      FactoryGirl.create(:saved_search, tag_query: "bbb", category: nil,   user: CurrentUser.user)
+      FactoryGirl.create(:saved_search, query: "aaa", labels: ["zzz"], user: CurrentUser.user)
+      FactoryGirl.create(:saved_search, query: "bbb", user: CurrentUser.user)
 
       SavedSearch.expects(:post_ids).with(CurrentUser.id, "zzz").returns([post1.id])
       SavedSearch.expects(:post_ids).with(CurrentUser.id, "uncategorized").returns([post2.id])

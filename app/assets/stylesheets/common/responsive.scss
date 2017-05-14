@@ -1,20 +1,33 @@
 @import "000_vars.scss";
 
-#responsive-tag-list {
+#desktop-version-link {
   display: none;
 }
 
 @media screen and (max-width: 660px) {
-  #responsive-tag-list {
-    display: block;
-
-    input[type=text] {
-      width: 75%;
-    }
+  #desktop-version-link {
+    display: inline;
   }
 
   #saved-searches-nav {
     display: none;
+  }
+
+  div#page {
+    > div /* div#c-$controller */ {
+      > div /* div#a-$action */ {
+        display: flex;
+        flex-direction: column;
+
+        /* Move #sidebar below #content. */
+        > aside#sidebar {
+          font-size: 1.5em;
+          float: none;
+          width: auto;
+          order: 2;
+        }
+      }
+    }
   }
 
   #maintoggle {
@@ -31,14 +44,21 @@
     }
   }
 
+  /* Make the quick search box in the navbar full width. */
+  header#top menu form input {
+    width: auto;
+  }
+
   h1 {
     display: none;
   }
 
-  input[type=text], input[type=submit] {
-    font-size: 18pt;
+  form {
+    input[type=text], input[type=submit], select {
+      font-size: 1.5em;
+    }
   }
- 
+
   div#page section#content {
     margin: 0;
     padding: 0;
@@ -48,16 +68,10 @@
     display: none;
   }
 
-  #sidebar {
-    display: none;
-  }
-
   div.paginator {
     font-size: 16pt;
     font-weight: bold;
     text-align: left;
-    background-color: #F7F7FF;
-    border-radius: 15%;
     padding: 3pt;
 
     li {
@@ -66,7 +80,7 @@
 
       a, span {
         padding: 3px 18px;
-        margin: 0 3px;
+        margin: 6px 3px;
         display: inline-block;
         border-radius: 15%;
       }
@@ -112,13 +126,6 @@
     }
   }
 
-  section#responsive-tag-list {
-    display: block;
-    h1 {
-      font-size: 1em;
-    }
-  }
-
   div#page {
     div.comments-for-post div.list-of-comments article.comment div.content {
       clear: both;
@@ -126,23 +133,13 @@
     }
   }
 
-  nav {
-    background: none;
-    float: right;
-    font-size: 1.125em;
-    width: 100%;
-  }
-  
   #nav {
     display: none;
   }
   
   header#top menu.main {
     background-color: lighten($link_color, 25%);
-  }
-  
-  header#top menu {
-    width: 100%;
+    padding: 5px 10px;
   }
   
   h1 {
@@ -171,8 +168,8 @@
 }
 
 @media screen and (max-width: 440px) {
-  #responsive-tag-list {
-    display: block;
+  input#expand-search {
+    display: none;
   }
 
   body {

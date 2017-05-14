@@ -19,7 +19,7 @@ table.striped {
     }
   }
 
-  .number {
+  .number, .links {
     text-align: right;
   }
 
@@ -37,6 +37,22 @@ table.striped {
 
   tr.even {
     background-color: #FAFAFA;
+  }
+}
+
+/*
+ * A table where one column expands to fill the screen, while the
+ * other columns shrink to fit their contents.
+ */
+table.autofit {
+  td, th, .col-fit {
+    white-space: nowrap;
+    padding-right: 2em;
+  }
+
+  .col-expand {
+    white-space: normal;
+    width: 100%;
   }
 }
 

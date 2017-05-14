@@ -176,6 +176,9 @@ Danbooru.Note = {
 
     scale_all: function() {
       var container = document.getElementById('note-container');
+      if (container === null) {
+        return;
+      }
       // Hide notes while rescaling, to prevent unnecessary reflowing
       var was_visible = container.style.display != 'none';
       if (was_visible) {
@@ -444,7 +447,7 @@ Danbooru.Note = {
     },
 
     error_handler: function(xhr, status, exception) {
-      Danbooru.error("There was an error saving the note");
+      Danbooru.error("Error: " + xhr.responseJSON.reasons.join("; "));
     },
 
     success_handler: function(data, status, xhr) {

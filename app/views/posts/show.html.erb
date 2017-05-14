@@ -88,11 +88,6 @@
         <li><a href="#share">Share</a></li>
       </menu>
 
-      <section id="responsive-tag-list">
-        <%= render "posts/partials/common/search", :path => posts_path, :tags => params[:tags], :tags_dom_id => "responsive-tags" %>
-        <%= @post.presenter.split_tag_list_html(self) %>
-      </section>
-
       <section id="comments">
         <% if !CurrentUser.user.is_builder? %>
           <h2>Before commenting, read the <%= link_to "how to comment guide", wiki_pages_path(:search => {:title => "howto:comment"}) %>.</h2>
@@ -119,11 +114,15 @@
   </div>
 
   <div id="flag-dialog" class="prose" title="Flag post" style="display: none;">
-    <%= render "post_flags/new" %>
+    <%= render "post_flags/new", post_flag: @post.flags.new %>
   </div>
 
   <div id="appeal-dialog" class="prose" title="Appeal post" style="display: none;">
-    <%= render "post_appeals/new" %>
+    <%= render "post_appeals/new", post_appeal: @post.appeals.new %>
+  </div>
+
+  <div id="replace-image-dialog" class="prose" title="Replace image" style="display: none;">
+    <%= render "moderator/post/posts/replace" %>
   </div>
 
   <div id="add-to-pool-dialog" title="Add to pool" style="display: none;">
@@ -136,6 +135,10 @@
 
   <div id="add-to-favgroup-dialog" title="Add to favorite group" style="display: none;">
     <%= render "favorite_groups/add_to_favgroup_dialog", :post => @post %>
+  </div>
+
+  <div id="saved-searches-nav">
+    <%= render "saved_searches/interface" %>
   </div>
 </div>
 
@@ -158,7 +161,6 @@
   <meta name="post-has-embedded-notes" content="<%= @post.has_embedded_notes? %>">
   <meta name="always-resize-images" content="<%= CurrentUser.user.always_resize_images? %>">
   <meta property="og:title" content="<%= @post.presenter.humanized_essential_tag_string %> - <%= Danbooru.config.app_name %>">
-  <meta property="og:description" content="<%= @post.presenter.humanized_tag_string %>">
   <meta property="og:image" content="http://<%= Danbooru.config.hostname %><%= @post.large_file_url %>">
 
   <% if Danbooru.config.enable_post_search_counts %>

@@ -109,7 +109,6 @@
         <li><%= link_to("Signup", new_user_path) %></li>
         <li><%= link_to("Terms of Service", terms_of_service_path) %></li>
         <li><%= link_to("Upgrade Information", new_user_upgrade_path) %></li>
-        <li><%= link_to("Super Voters", super_voters_path) %></li>
       </ul>
       <ul>
         <li><h1>Admin</h1></li>
@@ -120,6 +119,7 @@
 
         <% if CurrentUser.is_moderator? %>
           <li><%= link_to("IP Bans", ip_bans_path) %></li>
+          <li><%= link_to("Bulk Revert", new_moderator_bulk_revert_path) %></li>
         <% end %>
 
         <% if CurrentUser.is_admin? %>

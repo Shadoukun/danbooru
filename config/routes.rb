@@ -30,6 +30,7 @@ Rails.application.routes.draw do
         member do
           get :confirm_delete
           post :expunge
+          post :replace
           post :delete
           post :undelete
           get :confirm_move_favorites
@@ -110,7 +111,13 @@ Rails.application.routes.draw do
       get :posts
     end
   end
-  resources :delayed_jobs, :only => [:index]
+  resources :delayed_jobs, :only => [:index, :destroy] do
+    member do
+      put :run
+      put :retry
+      put :cancel
+    end
+  end
   resources :dmails, :only => [:new, :create, :index, :show, :destroy] do
     collection do
       get :search
@@ -147,7 +154,7 @@ Rails.application.routes.draw do
     resource :visit, :controller => "forum_topic_visits"
   end
   resources :ip_bans
-  resources :iqdb_queries, :only => [:create]
+  resources :iqdb_queries, :only => [:create, :index]
   resources :janitor_trials do
     collection do
       get :test
@@ -206,6 +213,7 @@ Rails.application.routes.draw do
       get :show_seq
       put :mark_as_translated
     end
+    get :similar, :to => "iqdb_queries#index"
   end
   resources :post_appeals
   resources :post_flags
@@ -235,10 +243,9 @@ Rails.application.routes.draw do
   post "reports/post_versions_create" => "reports#post_versions_create"
   resources :saved_searches, :except => [:show] do
     collection do
-      get :categories
+      get :labels
     end
   end
-  resource :saved_search_category_change, :only => [:new, :create]
   resource :session do
     collection do
       get :sign_out

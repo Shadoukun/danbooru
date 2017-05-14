@@ -13,7 +13,11 @@ form.simple_form {
     margin-bottom: 1em;
 
     input[type=text], input[type=file], input[type=password], input[type=email] {
-      width: 20em;
+      max-width: 20em;
+    }
+
+    span.hint {
+      margin-left: 1em;
     }
 
     textarea {
@@ -57,6 +61,7 @@ form.inline-form {
     label, input {
       display: table-cell;
       padding-right: 1em;
+      white-space: nowrap;
     }
   }
 }

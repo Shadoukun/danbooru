@@ -60,7 +60,7 @@ class PostArchive < ActiveRecord::Base
       def queue(post)
         # queue updates to sqs so that if archives goes down for whatever reason it won't
         # block post updates
-        raise "Archive service is not configured" if !enabled?
+        raise NotImplementedError.new("Archive service is not configured") if !enabled?
 
         json = {
           "post_id" => post.id,
@@ -96,7 +96,17 @@ class PostArchive < ActiveRecord::Base
   end
 
   def previous
-    PostArchive.where("post_id = ? and version < ?", post_id, version).order("version desc").first
+    # HACK: if all the post versions for this post have already been preloaded,
+    # we can use that to avoid a SQL query.
+    if association(:post).loaded? && post && post.association(:versions).loaded?
+      post.versions.sort_by(&:version).reverse.find { |v| v.version < version }
+    else
+      PostArchive.where("post_id = ? and version < ?", post_id, version).order("version desc").first
+    end
+  end
+
+  def visible?
+    post && post.visible?
   end
 
   def diff(version = nil)
@@ -136,8 +146,13 @@ class PostArchive < ActiveRecord::Base
   def changes
     delta = {
       :added_tags => added_tags,
-      :removed_tags => removed_tags
+      :removed_tags => removed_tags,
+      :obsolete_removed_tags => [],
+      :obsolete_added_tags => [],
+      :unchanged_tags => []
     }
+
+    return delta if post.nil?
 
     latest_tags = post.tag_array
     latest_tags << "rating:#{post.rating}" if post.rating.present?
@@ -145,7 +160,9 @@ class PostArchive < ActiveRecord::Base
     latest_tags << "source:#{post.source}" if post.source.present?
 
     if parent_changed
-      delta[:added_tags] << "parent:#{parent_id}"
+      if parent_id.present?
+        delta[:added_tags] << "parent:#{parent_id}"
+      end
 
       if previous
         delta[:removed_tags] << "parent:#{previous.parent_id}"
@@ -161,7 +178,9 @@ class PostArchive < ActiveRecord::Base
     end
 
     if source_changed
-      delta[:added_tags] << "source:#{source}"
+      if source.present?
+        delta[:added_tags] << "source:#{source}"
+      end
 
       if previous
         delta[:removed_tags] << "source:#{previous.source}"

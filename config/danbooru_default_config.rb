@@ -35,6 +35,10 @@ module Danbooru
       User.find_by_name("DanbooruBot") || User.admins.first
     end
 
+    def upload_feedback_topic
+      ForumTopic.where(title: "Upload Feedback Thread").first
+    end
+
     def upgrade_account_email
       contact_email
     end
@@ -84,6 +88,20 @@ module Danbooru
       # user.per_page = 20
       # user.disable_tagged_filenames = false
       true
+    end
+
+    # What method to use to backup images.
+    #
+    # NullBackupService: Don't backup images at all.
+    #
+    # S3BackupService: Backup to Amazon S3. Must configure aws_access_key_id,
+    # aws_secret_access_key, and aws_s3_bucket_name. Bucket must exist and be writable.
+    def backup_service
+      if Rails.env.production?
+        S3BackupService.new
+      else
+        NullBackupService.new
+      end
     end
 
     # What method to use to store images.
@@ -412,7 +430,7 @@ module Danbooru
 
     # enable s3-nginx proxy caching
     def use_s3_proxy?(post)
-      post.id < 100
+      post.id < 10_000
     end
 
     # include essential tags in image urls (requires nginx/apache rewrites)
@@ -473,6 +491,7 @@ module Danbooru
       false
     end
 
+    # Used for backing up images to S3. Must be changed to your own S3 bucket.
     def aws_s3_bucket_name
       "danbooru"
     end

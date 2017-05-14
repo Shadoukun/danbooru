@@ -23,13 +23,13 @@ class Post < ActiveRecord::Base
   before_save :set_tag_counts
   before_save :set_pool_category_pseudo_tags
   before_create :autoban
+  after_save :queue_backup, if: :md5_changed?
   after_save :create_version
   after_save :update_parent_on_save
   after_save :apply_post_metatags
   after_save :expire_essential_tag_string_cache
   after_destroy :remove_iqdb_async
   after_destroy :delete_files
-  after_destroy :delete_remote_files
   after_commit :update_iqdb_async, :on => :create
   after_commit :notify_pubsub
 
@@ -46,30 +46,44 @@ class Post < ActiveRecord::Base
   has_many :notes, :dependent => :destroy
   has_many :comments, lambda {includes(:creator, :updater).order("comments.id")}, :dependent => :destroy
   has_many :children, lambda {order("posts.id")}, :class_name => "Post", :foreign_key => "parent_id"
+  has_many :approvals, :class_name => "PostApproval", :dependent => :destroy
   has_many :disapprovals, :class_name => "PostDisapproval", :dependent => :destroy
   has_many :favorites, :dependent => :destroy
-  attr_accessible :source, :rating, :tag_string, :old_tag_string, :old_parent_id, :old_source, :old_rating, :parent_id, :has_embedded_notes, :as => [:member, :builder, :gold, :platinum, :janitor, :moderator, :admin, :default]
-  attr_accessible :is_rating_locked, :is_note_locked, :as => [:builder, :janitor, :moderator, :admin]
+  has_many :replacements, class_name: "PostReplacement"
+
+  if PostArchive.enabled?
+    has_many :versions, lambda {order("post_versions.updated_at ASC")}, :class_name => "PostArchive", :dependent => :destroy
+  end
+
+  attr_accessible :source, :rating, :tag_string, :old_tag_string, :old_parent_id, :old_source, :old_rating, :parent_id, :has_embedded_notes, :as => [:member, :builder, :gold, :platinum, :moderator, :admin, :default]
+  attr_accessible :is_rating_locked, :is_note_locked, :as => [:builder, :moderator, :admin]
   attr_accessible :is_status_locked, :as => [:admin]
   attr_accessor :old_tag_string, :old_parent_id, :old_source, :old_rating, :has_constraints, :disable_versioning, :view_count
 
   module FileMethods
+    extend ActiveSupport::Concern
+
+    module ClassMethods
+      def delete_files(post_id, file_path, large_file_path, preview_file_path)
+        # the large file and the preview don't necessarily exist. if so errors will be ignored.
+        FileUtils.rm_f(file_path)
+        FileUtils.rm_f(large_file_path)
+        FileUtils.rm_f(preview_file_path)
+
+        RemoteFileManager.new(file_path).delete
+        RemoteFileManager.new(large_file_path).delete
+        RemoteFileManager.new(preview_file_path).delete
+      end
+    end
+
+    def delete_files
+      Post.delete_files(id, file_path, large_file_path, preview_file_path)
+    end
+
     def distribute_files
       RemoteFileManager.new(file_path).distribute
       RemoteFileManager.new(preview_file_path).distribute if has_preview?
       RemoteFileManager.new(large_file_path).distribute if has_large?
-    end
-
-    def delete_remote_files
-      RemoteFileManager.new(file_path).delete
-      RemoteFileManager.new(preview_file_path).delete if has_preview?
-      RemoteFileManager.new(large_file_path).delete if has_large?
-    end
-
-    def delete_files
-      FileUtils.rm_f(file_path)
-      FileUtils.rm_f(large_file_path)
-      FileUtils.rm_f(preview_file_path)
     end
 
     def file_path_prefix
@@ -173,7 +187,7 @@ class Post < ActiveRecord::Base
     end
 
     def is_animated_gif?
-      if file_ext =~ /gif/i
+      if file_ext =~ /gif/i && File.exists?(file_path)
         return Magick::Image.ping(file_path).length > 1
       else
         return false
@@ -220,6 +234,23 @@ class Post < ActiveRecord::Base
 
     def has_ugoira_webm?
       created_at < 1.minute.ago || (File.exists?(preview_file_path) && File.size(preview_file_path) > 0)
+    end
+  end
+
+  module BackupMethods
+    extend ActiveSupport::Concern
+
+    def queue_backup
+      Post.delay(queue: "default", priority: -1).backup_file(file_path, id: id, type: :original)
+      Post.delay(queue: "default", priority: -1).backup_file(large_file_path, id: id, type: :large) if has_large?
+      Post.delay(queue: "default", priority: -1).backup_file(preview_file_path, id: id, type: :preview) if has_preview?
+    end
+
+    module ClassMethods
+      def backup_file(file_path, options = {})
+        backup_service = Danbooru.config.backup_service
+        backup_service.backup(file_path, options)
+      end
     end
   end
 
@@ -285,22 +316,16 @@ class Post < ActiveRecord::Base
   end
 
   module ApprovalMethods
-    def is_approvable?
-      !is_status_locked? && (is_pending? || is_flagged? || is_deleted?) && !PostApproval.approved?(CurrentUser.id, id)
+    def is_approvable?(user = CurrentUser.user)
+      !is_status_locked? && (is_pending? || is_flagged? || is_deleted?) && !approved_by?(user)
     end
 
     def flag!(reason, options = {})
-      if is_status_locked?
-        raise PostFlag::Error.new("Post is locked and cannot be flagged")
-      end
-
       flag = flags.create(:reason => reason, :is_resolved => false, :is_deletion => options[:is_deletion])
 
       if flag.errors.any?
         raise PostFlag::Error.new(flag.errors.full_messages.join("; "))
       end
-
-      update_column(:is_flagged, true) unless is_flagged?
     end
 
     def appeal!(reason)
@@ -315,35 +340,12 @@ class Post < ActiveRecord::Base
       end
     end
 
-    def approve!
-      if is_status_locked?
-        errors.add(:is_status_locked, "; post cannot be approved")
-        raise ApprovalError.new("Post is locked and cannot be approved")
-      end
+    def approve!(approver = CurrentUser.user)
+      approvals.create(user: approver)
+    end
 
-      if uploader_id == CurrentUser.id
-        errors.add(:base, "You cannot approve a post you uploaded")
-        raise ApprovalError.new("You cannot approve a post you uploaded")
-      end
-
-      if approver_id == CurrentUser.id || PostApproval.approved?(CurrentUser.id, id)
-        errors.add(:approver, "have already approved this post")
-        raise ApprovalError.new("You have previously approved this post and cannot approve it again")
-      end
-
-      flags.each {|x| x.resolve!}
-      self.is_flagged = false
-      self.is_pending = false
-      self.is_deleted = false
-      self.approver_id = CurrentUser.id
-
-      PostApproval.create(user_id: CurrentUser.id, post_id: id)
-
-      if is_deleted_was == true
-        ModAction.log("undeleted post ##{id}")
-      end
-
-      save!
+    def approved_by?(user)
+      approver == user || approvals.where(user: user).exists?
     end
 
     def disapproved_by?(user)
@@ -386,15 +388,17 @@ class Post < ActiveRecord::Base
 
     def normalized_source
       case source
-      when %r{\Ahttps?://img\d+\.pixiv\.net/img/[^\/]+/(\d+)}i, %r{\Ahttps?://i\d\.pixiv\.net/img\d+/img/[^\/]+/(\d+)}i
+      when %r{\Ahttps?://img\d+\.pixiv\.net/img/[^\/]+/(\d+)}i, 
+           %r{\Ahttps?://i\d\.pixiv\.net/img\d+/img/[^\/]+/(\d+)}i
         "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=#{$1}"
 
-      when %r{\Ahttps?://i\d+\.pixiv\.net/img-original/img/(?:\d+\/)+(\d+)_p}i,
-           %r{\Ahttps?://i\d+\.pixiv\.net/c/\d+x\d+/img-master/img/(?:\d+\/)+(\d+)_p}i,
-           %r{\Ahttps?://i\d+\.pixiv\.net/img-zip-ugoira/img/(?:\d+\/)+(\d+)_ugoira\d+x\d+\.zip}i
+      when %r{\Ahttps?://(?:i\d+\.pixiv\.net|i\.pximg\.net)/img-(?:master|original)/img/(?:\d+\/)+(\d+)_p}i,
+           %r{\Ahttps?://(?:i\d+\.pixiv\.net|i\.pximg\.net)/c/\d+x\d+/img-master/img/(?:\d+\/)+(\d+)_p}i,
+           %r{\Ahttps?://(?:i\d+\.pixiv\.net|i\.pximg\.net)/img-zip-ugoira/img/(?:\d+\/)+(\d+)_ugoira\d+x\d+\.zip}i
         "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=#{$1}"
 
-      when %r{\Ahttps?://lohas\.nicoseiga\.jp/priv/(\d+)\?e=\d+&h=[a-f0-9]+}i, %r{\Ahttps?://lohas\.nicoseiga\.jp/priv/[a-f0-9]+/\d+/(\d+)}i
+      when %r{\Ahttps?://lohas\.nicoseiga\.jp/priv/(\d+)\?e=\d+&h=[a-f0-9]+}i, 
+           %r{\Ahttps?://lohas\.nicoseiga\.jp/priv/[a-f0-9]+/\d+/(\d+)}i
         "http://seiga.nicovideo.jp/seiga/im#{$1}"
 
       when %r{\Ahttps?://(?:d3j5vwomefv46c|dn3pm25xmtlyu)\.cloudfront\.net/photos/large/(\d+)\.}i
@@ -402,11 +406,27 @@ class Post < ActiveRecord::Base
         base_36_id = base_10_id.to_s(36)
         "http://twitpic.com/#{base_36_id}"
 
-      when %r{\Ahttps?://(?:fc|th|pre|orig|img)\d{2}\.deviantart\.net/.+/[a-z0-9_]*_by_([a-z0-9_]+)-d([a-z0-9]+)\.}i
-        "http://#{$1}.deviantart.com/gallery/#/d#{$2}"
+      # http://orig12.deviantart.net/9b69/f/2017/023/7/c/illustration___tokyo_encount_oei__by_melisaongmiqin-dawi58s.png
+      # http://pre15.deviantart.net/81de/th/pre/f/2015/063/5/f/inha_by_inhaestudios-d8kfzm5.jpg
+      # http://th00.deviantart.net/fs71/PRE/f/2014/065/3/b/goruto_by_xyelkiltrox-d797tit.png
+      # http://th04.deviantart.net/fs70/300W/f/2009/364/4/d/Alphes_Mimic___Rika_by_Juriesute.png
+      # http://fc02.deviantart.net/fs48/f/2009/186/2/c/Animation_by_epe_tohri.swf
+      # http://fc08.deviantart.net/files/f/2007/120/c/9/Cool_Like_Me_by_47ness.jpg
+      # http://fc08.deviantart.net/images3/i/2004/088/8/f/Blackrose_for_MuzicFreq.jpg
+      # http://img04.deviantart.net/720b/i/2003/37/9/6/princess_peach.jpg
+      when %r{\Ahttps?://(?:fc|th|pre|orig|img|prnt)\d{2}\.deviantart\.net/.+/(?<title>[a-z0-9_]+)_by_(?<artist>[a-z0-9_]+)-d(?<id>[a-z0-9]+)\.}i
+        artist = $~[:artist].dasherize
+        title = $~[:title].titleize.strip.squeeze(" ").tr(" ", "-")
+        id = $~[:id].to_i(36)
+        "http://#{artist}.deviantart.com/art/#{title}-#{id}"
 
-      when %r{\Ahttps?://(?:fc|th|pre|orig|img)\d{2}\.deviantart\.net/.+/[a-f0-9]+-d([a-z0-9]+)\.}i
-        "http://deviantart.com/gallery/#/d#{$1}"
+      # http://prnt00.deviantart.net/9b74/b/2016/101/4/468a9d89f52a835d4f6f1c8caca0dfb2-pnjfbh.jpg
+      # http://fc00.deviantart.net/fs71/f/2013/234/d/8/d84e05f26f0695b1153e9dab3a962f16-d6j8jl9.jpg
+      # http://th04.deviantart.net/fs71/PRE/f/2013/337/3/5/35081351f62b432f84eaeddeb4693caf-d6wlrqs.jpg
+      # http://fc09.deviantart.net/fs22/o/2009/197/3/7/37ac79eaeef9fb32e6ae998e9a77d8dd.jpg
+      when %r{\Ahttps?://(?:fc|th|pre|orig|img|prnt)\d{2}\.deviantart\.net/.+/[a-f0-9]{32}-d(?<id>[a-z0-9]+)\.}i
+        id = $~[:id].to_i(36)
+        "http://deviantart.com/deviation/#{id}"
 
       when %r{\Ahttp://www\.karabako\.net/images(?:ub)?/karabako_(\d+)(?:_\d+)?\.}i
         "http://www.karabako.net/post/view/#{$1}"
@@ -636,6 +656,7 @@ class Post < ActiveRecord::Base
       normalized_tags = %w(tagme) if normalized_tags.empty?
       normalized_tags = TagAlias.to_aliased(normalized_tags)
       normalized_tags = add_automatic_tags(normalized_tags)
+      normalized_tags = normalized_tags + TagImplication.automatic_tags_for(normalized_tags)
       normalized_tags = TagImplication.with_descendants(normalized_tags)
       normalized_tags = normalized_tags.compact
       normalized_tags.sort!
@@ -652,7 +673,8 @@ class Post < ActiveRecord::Base
     def add_automatic_tags(tags)
       return tags if !Danbooru.config.enable_dimension_autotagging
 
-      tags -= %w(incredibly_absurdres absurdres highres lowres huge_filesize animated_gif animated_png flash webm mp4)
+      tags -= %w(incredibly_absurdres absurdres highres lowres huge_filesize flash webm mp4)
+      tags -= %w(animated_gif animated_png) if new_record?
 
       if has_dimensions?
         if image_width >= 10_000 || image_height >= 10_000
@@ -704,10 +726,6 @@ class Post < ActiveRecord::Base
       if is_ugoira?
         tags << "ugoira"
       end
-
-      characters = tags.grep(/\A(.+)_\(cosplay\)\Z/) { $1 }
-      tags += characters
-      tags << "cosplay" if characters.present?
 
       return tags
     end
@@ -946,7 +964,7 @@ class Post < ActiveRecord::Base
 
     def add_favorite!(user)
       Favorite.add(self, user)
-      vote!("up") if CurrentUser.is_gold?
+      vote!("up", user) if user.is_voter?
     rescue PostVote::Error
     end
 
@@ -956,7 +974,7 @@ class Post < ActiveRecord::Base
 
     def remove_favorite!(user)
       Favorite.remove(self, user)
-      unvote! if CurrentUser.is_gold?
+      unvote!(user) if user.is_voter?
     rescue PostVote::Error
     end
 
@@ -1001,7 +1019,7 @@ class Post < ActiveRecord::Base
     end
 
     def uploader_name
-      User.id_to_name(uploader_id).tr("_", " ")
+      User.id_to_name(uploader_id)
     end
   end
 
@@ -1066,27 +1084,25 @@ class Post < ActiveRecord::Base
       !PostVote.exists?(:user_id => user.id, :post_id => id)
     end
 
-    def vote!(score)
-      unless CurrentUser.is_voter?
+    def vote!(vote, voter = CurrentUser.user)
+      unless voter.is_voter?
         raise PostVote::Error.new("You do not have permission to vote")
       end
 
-      unless can_be_voted_by?(CurrentUser.user)
+      unless can_be_voted_by?(voter)
         raise PostVote::Error.new("You have already voted for this post")
       end
 
-      PostVote.create!(:post_id => id, :score => score)
+      votes.create!(user: voter, vote: vote)
       reload # PostVote.create modifies our score. Reload to get the new score.
     end
 
-    def unvote!
-      if can_be_voted_by?(CurrentUser.user)
+    def unvote!(voter = CurrentUser.user)
+      if can_be_voted_by?(voter)
         raise PostVote::Error.new("You have not voted for this post")
       else
-        vote = PostVote.where("post_id = ? and user_id = ?", id, CurrentUser.user.id).first
-        vote.destroy
-
-        self.reload
+        votes.where(user: voter).destroy_all
+        reload
       end
     end
   end
@@ -1301,9 +1317,11 @@ class Post < ActiveRecord::Base
     def give_favorites_to_parent
       return if parent.nil?
 
-      favorited_users.each do |user|
-        remove_favorite!(user)
-        parent.add_favorite!(user)
+      transaction do
+        favorites.each do |fav|
+          remove_favorite!(fav.user)
+          parent.add_favorite!(fav.user)
+        end
       end
     end
 
@@ -1396,7 +1414,7 @@ class Post < ActiveRecord::Base
       end
 
       if !CurrentUser.is_admin? 
-        if approver_id == CurrentUser.id || PostApproval.approved?(CurrentUser.id, id)
+        if approved_by?(CurrentUser.user)
           raise ApprovalError.new("You have previously approved this post and cannot undelete it")
         elsif uploader_id == CurrentUser.id
           raise ApprovalError.new("You cannot undelete a post you uploaded")
@@ -1410,17 +1428,14 @@ class Post < ActiveRecord::Base
       Post.expire_cache_for_all(tag_array)
       ModAction.log("undeleted post ##{id}")
     end
+
+    def replace!(url)
+      replacement = replacements.create(replacement_url: url)
+      replacement.process!
+    end
   end
 
   module VersionMethods
-    def versions
-      if PostArchive.enabled?
-        PostArchive.where(post_id: id).order("updated_at ASC, id asc")
-      else
-        raise "Archive service not configured"
-      end
-    end
-
     def create_version(force = false)
       if new_record? || rating_changed? || source_changed? || parent_id_changed? || tag_string_changed? || force
         create_new_version
@@ -1710,6 +1725,7 @@ class Post < ActiveRecord::Base
   end
   
   include FileMethods
+  include BackupMethods
   include ImageMethods
   include ApprovalMethods
   include PresenterMethods
@@ -1733,7 +1749,6 @@ class Post < ActiveRecord::Base
 
   BOOLEAN_ATTRIBUTES = %w(
     has_embedded_notes
-    cdn_hosted
   )
   has_bit_flags BOOLEAN_ATTRIBUTES
 

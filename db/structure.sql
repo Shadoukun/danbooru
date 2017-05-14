@@ -823,7 +823,9 @@ CREATE TABLE bulk_update_requests (
     status character varying DEFAULT 'pending'::character varying NOT NULL,
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
-    approver_id integer
+    approver_id integer,
+    forum_post_id integer,
+    title text
 );
 
 
@@ -2685,37 +2687,25 @@ ALTER SEQUENCE post_flags_id_seq OWNED BY post_flags.id;
 
 
 --
--- Name: post_updates; Type: TABLE; Schema: public; Owner: -
+-- Name: post_replacements; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE UNLOGGED TABLE post_updates (
-    post_id integer
-);
-
-
---
--- Name: post_versions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE post_versions (
+CREATE TABLE post_replacements (
     id integer NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
     post_id integer NOT NULL,
-    tags text DEFAULT ''::text NOT NULL,
-    rating character(1),
-    parent_id integer,
-    source text,
-    updater_id integer NOT NULL,
-    updater_ip_addr inet NOT NULL
+    creator_id integer NOT NULL,
+    original_url text NOT NULL,
+    replacement_url text NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone NOT NULL
 );
 
 
 --
--- Name: post_versions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: post_replacements_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE post_versions_id_seq
+CREATE SEQUENCE post_replacements_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -2724,10 +2714,19 @@ CREATE SEQUENCE post_versions_id_seq
 
 
 --
--- Name: post_versions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: post_replacements_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE post_versions_id_seq OWNED BY post_versions.id;
+ALTER SEQUENCE post_replacements_id_seq OWNED BY post_replacements.id;
+
+
+--
+-- Name: post_updates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE UNLOGGED TABLE post_updates (
+    post_id integer
+);
 
 
 --
@@ -2838,11 +2837,12 @@ ALTER SEQUENCE posts_id_seq OWNED BY posts.id;
 CREATE TABLE saved_searches (
     id integer NOT NULL,
     user_id integer,
-    tag_query text,
+    query text,
     name text,
     category character varying,
     created_at timestamp without time zone,
-    updated_at timestamp without time zone
+    updated_at timestamp without time zone,
+    labels text[] DEFAULT '{}'::text[] NOT NULL
 );
 
 
@@ -2920,7 +2920,8 @@ CREATE TABLE tag_aliases (
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
     post_count integer DEFAULT 0 NOT NULL,
-    approver_id integer
+    approver_id integer,
+    forum_post_id integer
 );
 
 
@@ -2958,7 +2959,8 @@ CREATE TABLE tag_implications (
     status text DEFAULT 'pending'::text NOT NULL,
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
-    approver_id integer
+    approver_id integer,
+    forum_post_id integer
 );
 
 
@@ -4301,7 +4303,7 @@ ALTER TABLE ONLY post_flags ALTER COLUMN id SET DEFAULT nextval('post_flags_id_s
 -- Name: id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY post_versions ALTER COLUMN id SET DEFAULT nextval('post_versions_id_seq'::regclass);
+ALTER TABLE ONLY post_replacements ALTER COLUMN id SET DEFAULT nextval('post_replacements_id_seq'::regclass);
 
 
 --
@@ -4698,11 +4700,11 @@ ALTER TABLE ONLY post_flags
 
 
 --
--- Name: post_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: post_replacements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY post_versions
-    ADD CONSTRAINT post_versions_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY post_replacements
+    ADD CONSTRAINT post_replacements_pkey PRIMARY KEY (id);
 
 
 --
@@ -4928,6 +4930,13 @@ CREATE INDEX index_artist_urls_on_url_pattern ON artist_urls USING btree (url te
 --
 
 CREATE INDEX index_artist_versions_on_artist_id ON artist_versions USING btree (artist_id);
+
+
+--
+-- Name: index_artist_versions_on_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_artist_versions_on_created_at ON artist_versions USING btree (created_at);
 
 
 --
@@ -6632,6 +6641,13 @@ CREATE INDEX index_news_updates_on_created_at ON news_updates USING btree (creat
 
 
 --
+-- Name: index_note_versions_on_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_note_versions_on_created_at ON note_versions USING btree (created_at);
+
+
+--
 -- Name: index_note_versions_on_note_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6712,7 +6728,21 @@ CREATE INDEX index_pools_on_name ON pools USING btree (name);
 -- Name: index_pools_on_name_trgm; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_pools_on_name_trgm ON pools USING gin (name gin_trgm_ops);
+CREATE INDEX index_pools_on_name_trgm ON pools USING gin (lower((name)::text) gin_trgm_ops);
+
+
+--
+-- Name: index_pools_on_updated_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_pools_on_updated_at ON pools USING btree (updated_at);
+
+
+--
+-- Name: index_post_appeals_on_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_post_appeals_on_created_at ON post_appeals USING btree (created_at);
 
 
 --
@@ -6734,6 +6764,13 @@ CREATE INDEX index_post_appeals_on_creator_ip_addr ON post_appeals USING btree (
 --
 
 CREATE INDEX index_post_appeals_on_post_id ON post_appeals USING btree (post_id);
+
+
+--
+-- Name: index_post_appeals_on_reason_tsvector; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_post_appeals_on_reason_tsvector ON post_appeals USING gin (to_tsvector('english'::regconfig, reason));
 
 
 --
@@ -6786,31 +6823,24 @@ CREATE INDEX index_post_flags_on_post_id ON post_flags USING btree (post_id);
 
 
 --
--- Name: index_post_versions_on_post_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_post_flags_on_reason_tsvector; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_post_versions_on_post_id ON post_versions USING btree (post_id);
-
-
---
--- Name: index_post_versions_on_updated_at_and_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_post_versions_on_updated_at_and_id ON post_versions USING btree (updated_at, id);
+CREATE INDEX index_post_flags_on_reason_tsvector ON post_flags USING gin (to_tsvector('english'::regconfig, reason));
 
 
 --
--- Name: index_post_versions_on_updater_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_post_replacements_on_creator_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_post_versions_on_updater_id ON post_versions USING btree (updater_id);
+CREATE INDEX index_post_replacements_on_creator_id ON post_replacements USING btree (creator_id);
 
 
 --
--- Name: index_post_versions_on_updater_ip_addr; Type: INDEX; Schema: public; Owner: -
+-- Name: index_post_replacements_on_post_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_post_versions_on_updater_ip_addr ON post_versions USING btree (updater_ip_addr);
+CREATE INDEX index_post_replacements_on_post_id ON post_replacements USING btree (post_id);
 
 
 --
@@ -6919,17 +6949,17 @@ CREATE INDEX index_posts_on_uploader_id ON posts USING btree (uploader_id);
 
 
 --
--- Name: index_saved_searches_on_category; Type: INDEX; Schema: public; Owner: -
+-- Name: index_saved_searches_on_labels; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_saved_searches_on_category ON saved_searches USING btree (category);
+CREATE INDEX index_saved_searches_on_labels ON saved_searches USING gin (labels);
 
 
 --
--- Name: index_saved_searches_on_tag_query; Type: INDEX; Schema: public; Owner: -
+-- Name: index_saved_searches_on_query; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_saved_searches_on_tag_query ON saved_searches USING btree (tag_query);
+CREATE INDEX index_saved_searches_on_query ON saved_searches USING btree (query);
 
 
 --
@@ -7094,6 +7124,13 @@ CREATE INDEX index_users_on_name_trgm ON users USING gin (lower((name)::text) gi
 
 
 --
+-- Name: index_wiki_page_versions_on_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_wiki_page_versions_on_created_at ON wiki_page_versions USING btree (created_at);
+
+
+--
 -- Name: index_wiki_page_versions_on_updater_ip_addr; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7133,6 +7170,13 @@ CREATE UNIQUE INDEX index_wiki_pages_on_title ON wiki_pages USING btree (title);
 --
 
 CREATE INDEX index_wiki_pages_on_title_pattern ON wiki_pages USING btree (title text_pattern_ops);
+
+
+--
+-- Name: index_wiki_pages_on_updated_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_wiki_pages_on_updated_at ON wiki_pages USING btree (updated_at);
 
 
 --
@@ -7467,4 +7511,28 @@ INSERT INTO schema_migrations (version) VALUES ('20170117233040');
 INSERT INTO schema_migrations (version) VALUES ('20170218104710');
 
 INSERT INTO schema_migrations (version) VALUES ('20170302014435');
+
+INSERT INTO schema_migrations (version) VALUES ('20170314235626');
+
+INSERT INTO schema_migrations (version) VALUES ('20170316224630');
+
+INSERT INTO schema_migrations (version) VALUES ('20170319000519');
+
+INSERT INTO schema_migrations (version) VALUES ('20170329185605');
+
+INSERT INTO schema_migrations (version) VALUES ('20170330230231');
+
+INSERT INTO schema_migrations (version) VALUES ('20170413000209');
+
+INSERT INTO schema_migrations (version) VALUES ('20170414005856');
+
+INSERT INTO schema_migrations (version) VALUES ('20170414233426');
+
+INSERT INTO schema_migrations (version) VALUES ('20170414233617');
+
+INSERT INTO schema_migrations (version) VALUES ('20170416224142');
+
+INSERT INTO schema_migrations (version) VALUES ('20170428220448');
+
+INSERT INTO schema_migrations (version) VALUES ('20170512221200');
 

@@ -20,8 +20,9 @@ class ApplicationController < ActionController::Base
   rescue_from Danbooru::Paginator::PaginationError, :with => :render_pagination_limit
 
   protected
+
   def show_moderation_notice?
-    CurrentUser.can_approve_posts? && (cookies[:moderated].blank? || Time.at(cookies[:moderated].to_i) < 1.day.ago)
+    CurrentUser.can_approve_posts? && (cookies[:moderated].blank? || Time.at(cookies[:moderated].to_i) < 20.hours.ago)
   end
 
   def ssl_login?
@@ -84,6 +85,13 @@ class ApplicationController < ActionController::Base
     elsif exception.is_a?(::ActiveRecord::RecordNotFound)
       @error_message = "That record was not found"
       render :template => "static/error", :status => 404
+    elsif exception.is_a?(NotImplementedError)
+      flash[:notice] = "This feature isn't available: #{@exception.message}"
+      respond_to do |fmt|
+        fmt.html { redirect_to :back }
+        fmt.json { render template: "static/error", status: 501 }
+        fmt.xml  { render template: "static/error", status: 501 }
+      end
     else
       render :template => "static/error", :status => 500
     end

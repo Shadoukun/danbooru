@@ -6,7 +6,6 @@ class NoteTest < ActiveSupport::TestCase
       @user = FactoryGirl.create(:user)
       CurrentUser.user = @user
       CurrentUser.ip_addr = "127.0.0.1"
-      MEMCACHE.flush_all
     end
 
     teardown do
@@ -66,6 +65,13 @@ class NoteTest < ActiveSupport::TestCase
         @note = FactoryGirl.build(:note, :x => 500, :y => 500, :post_id => -1)
         @note.save
         assert_equal(["Post must exist"], @note.errors.full_messages)
+      end
+
+      should "not validate if the body is blank" do
+        @note = FactoryGirl.build(:note, body: "   ")
+
+        assert_equal(false, @note.valid?)
+        assert_equal(["Body can't be blank"], @note.errors.full_messages)
       end
 
       should "create a version" do

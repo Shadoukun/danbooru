@@ -6,11 +6,12 @@ module Sources
     delegate :get, :get_size, :site_name, :artist_name, 
       :profile_url, :image_url, :tags, :artist_record, :unique_id, 
       :page_count, :file_url, :ugoira_frame_data, :ugoira_content_type, :image_urls,
-      :has_artist_commentary?, :artist_commentary_title,
-      :artist_commentary_desc, :rewrite_thumbnails, :illust_id_from_url, :to => :strategy
+      :artist_commentary_title, :artist_commentary_desc,
+      :dtext_artist_commentary_title, :dtext_artist_commentary_desc,
+      :rewrite_thumbnails, :illust_id_from_url, :to => :strategy
 
     def self.strategies
-      [Strategies::PixivWhitecube, Strategies::Pixiv, Strategies::NicoSeiga, Strategies::DeviantArt, Strategies::ArtStation, Strategies::Nijie, Strategies::Twitter, Strategies::Tumblr]
+      [Strategies::PixivWhitecube, Strategies::Pixiv, Strategies::NicoSeiga, Strategies::DeviantArt, Strategies::ArtStation, Strategies::Nijie, Strategies::Twitter, Strategies::Tumblr, Strategies::Pawoo]
     end
 
     def initialize(url, options = {})
@@ -56,7 +57,7 @@ module Sources
       WikiPage.other_names_match(untranslated_tags).map{|wiki_page| [wiki_page.title, wiki_page.category_name]}
     end
 
-    def to_json
+    def to_h
       return {
         :artist_name => artist_name,
         :profile_url => profile_url,
@@ -70,8 +71,14 @@ module Sources
         :artist_commentary => {
           :title => artist_commentary_title,
           :description => artist_commentary_desc,
+          :dtext_title => dtext_artist_commentary_title,
+          :dtext_description => dtext_artist_commentary_desc,
         }
-      }.to_json
+      }
+    end
+
+    def to_json
+      to_h.to_json
     end
 
     def available?

@@ -6,7 +6,6 @@ class CommentTest < ActiveSupport::TestCase
       user = FactoryGirl.create(:user)
       CurrentUser.user = user
       CurrentUser.ip_addr = "127.0.0.1"
-      MEMCACHE.flush_all
     end
 
     teardown do
@@ -91,7 +90,7 @@ class CommentTest < ActiveSupport::TestCase
         setup do
           @post = FactoryGirl.create(:post)
           @comment = FactoryGirl.create(:comment, :post_id => @post.id)
-          @comment.destroy
+          @comment.update({is_deleted: true}, as: :member)
           @post.reload
         end
 
@@ -210,6 +209,13 @@ class CommentTest < ActiveSupport::TestCase
         assert_equal(c1.id, matches.all[1].id)
       end
 
+      should "default to id_desc order when searched with no options specified" do
+        comms = FactoryGirl.create_list(:comment, 3)
+        matches = Comment.search({})
+
+        assert_equal([comms[2].id, comms[1].id, comms[0].id], matches.map(&:id))
+      end
+
       context "that is edited by a moderator" do
         setup do
           @post = FactoryGirl.create(:post)
@@ -242,6 +248,33 @@ class CommentTest < ActiveSupport::TestCase
 
           assert_equal([], post.comments.hidden(user))
           assert_equal([comment], post.comments.visible(user))
+        end
+      end
+
+      context "that is quoted" do
+        should "strip [quote] tags correctly" do
+          comment = FactoryGirl.create(:comment, body: <<-EOS.strip_heredoc)
+            paragraph one
+
+            [quote]
+            somebody said:
+
+            blah blah blah
+            [/QUOTE]
+
+            paragraph two
+          EOS
+
+          assert_equal(<<-EOS.strip_heredoc, comment.quoted_response)
+            [quote]
+            #{comment.creator_name} said:
+
+            paragraph one
+
+            paragraph two
+            [/quote]
+
+          EOS
         end
       end
     end

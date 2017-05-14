@@ -20,7 +20,7 @@ class Pool < ActiveRecord::Base
   after_save :create_version
   after_create :synchronize!
   before_destroy :create_mod_action_for_destroy
-  attr_accessible :name, :description, :post_ids, :post_id_array, :post_count, :is_active, :category, :as => [:member, :gold, :platinum, :janitor, :moderator, :admin, :default]
+  attr_accessible :name, :description, :post_ids, :post_id_array, :post_count, :is_active, :category, :as => [:member, :gold, :platinum, :moderator, :admin, :default]
   attr_accessible :is_deleted, :as => [:moderator, :admin]
 
   module SearchMethods
@@ -45,9 +45,9 @@ class Pool < ActiveRecord::Base
     end
 
     def name_matches(name)
-      name = name.tr(" ", "_")
+      name = normalize_name_for_search(name)
       name = "*#{name}*" unless name =~ /\*/
-      where("name ilike ? escape E'\\\\'", name.to_escaped_for_sql_like)
+      where("lower(name) like ? escape E'\\\\'", name.to_escaped_for_sql_like)
     end
 
     def search(params)
@@ -137,6 +137,10 @@ class Pool < ActiveRecord::Base
 
   def self.normalize_name(name)
     name.gsub(/\s+/, "_")
+  end
+
+  def self.normalize_name_for_search(name)
+    normalize_name(name).mb_chars.downcase
   end
 
   def self.normalize_post_ids(post_ids, unique)

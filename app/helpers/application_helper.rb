@@ -81,8 +81,20 @@ module ApplicationHelper
     content_tag(:time, content || datetime, :datetime => datetime, :title => time.to_formatted_s)
   end
 
+  def humanized_duration(from, to)
+    duration = distance_of_time_in_words(from, to)
+    datetime = from.iso8601 + "/" + to.iso8601
+    title = "#{from.strftime("%Y-%m-%d %H:%M")} to #{to.strftime("%Y-%m-%d %H:%M")}"
+
+    raw content_tag(:time, duration, datetime: datetime, title: title)
+  end
+
   def time_ago_in_words_tagged(time)
-    raw time_tag(time_ago_in_words(time) + " ago", time)
+    if time.past?
+      raw time_tag(time_ago_in_words(time) + " ago", time)
+    else
+      raw time_tag("in " + distance_of_time_in_words(Time.now, time), time)
+    end
   end
 
   def compact_time(time)
@@ -126,7 +138,7 @@ module ApplicationHelper
   end
 
   def dtext_field(object, name, options = {})
-    options[:name] ||= "Body"
+    options[:name] ||= name.capitalize
     options[:input_id] ||= "#{object}_#{name}"
     options[:input_name] ||= "#{object}[#{name}]"
     options[:value] ||= instance_variable_get("@#{object}").try(name)

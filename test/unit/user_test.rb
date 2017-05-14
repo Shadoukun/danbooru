@@ -6,7 +6,6 @@ class UserTest < ActiveSupport::TestCase
       @user = FactoryGirl.create(:user)
       CurrentUser.user = @user
       CurrentUser.ip_addr = "127.0.0.1"
-      MEMCACHE.flush_all
     end
 
     teardown do
@@ -62,12 +61,6 @@ class UserTest < ActiveSupport::TestCase
         @user.reload
         assert_equal(User::Levels::BUILDER, @user.level)
         assert_equal(true, @user.can_upload_free)
-      end
-
-      should "not allow invites up to janitor level or beyond" do
-        @user.invite!(User::Levels::JANITOR, "1")
-        @user.reload
-        assert_equal(User::Levels::MEMBER, @user.level)
       end
 
       should "create a mod action" do
@@ -153,31 +146,21 @@ class UserTest < ActiveSupport::TestCase
     should "normalize its level" do
       user = FactoryGirl.create(:user, :level => User::Levels::ADMIN)
       assert(user.is_moderator?)
-      assert(user.is_janitor?)
       assert(user.is_gold?)
 
       user = FactoryGirl.create(:user, :level => User::Levels::MODERATOR)
       assert(!user.is_admin?)
       assert(user.is_moderator?)
-      assert(user.is_janitor?)
-      assert(user.is_gold?)
-
-      user = FactoryGirl.create(:user, :level => User::Levels::JANITOR)
-      assert(!user.is_admin?)
-      assert(!user.is_moderator?)
-      assert(user.is_janitor?)
       assert(user.is_gold?)
 
       user = FactoryGirl.create(:user, :level => User::Levels::GOLD)
       assert(!user.is_admin?)
       assert(!user.is_moderator?)
-      assert(!user.is_janitor?)
       assert(user.is_gold?)
 
       user = FactoryGirl.create(:user)
       assert(!user.is_admin?)
       assert(!user.is_moderator?)
-      assert(!user.is_janitor?)
       assert(!user.is_gold?)
     end
 
