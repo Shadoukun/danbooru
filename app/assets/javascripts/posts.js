@@ -623,7 +623,73 @@
       $tagsinput.attr("class", "token-input ui-autocomplete-input");
       $tagsinput.attr("autocomplete", "off");
       $tagsinput.attr("id", "post_tag_string");
+      $tagsinput.attr("data-autocomplete", "tag-edit")
       Danbooru.Autocomplete.initialize_all();
+
+      // Enter key submits tags.
+      $textarea.data("bs.tokenfield").$input.keydown(function(e) {
+          if ( e.which == 32 ) {
+              $textarea.tokenfield("createTokensFromInput")
+          }
+      })
+
+      $textarea.on('tokenfield:createtoken', function (event) {
+	      var existingTokens = $(this).tokenfield('getTokens');
+	      $.each(existingTokens, function(index, token) {
+
+              // If duplicate tag already exists
+              if (token.value === event.attrs.value) {
+
+                  tokenlabel = $(".token").filter(function() {return $(this).find("span").text() === event.attrs.value});
+                  tokenlabel.fadeOut(50).fadeIn(50);
+
+                  $textarea.data('bs.tokenfield').$input.val('');
+
+                  event.preventDefault();
+              }
+
+
+              // if input is -tag
+              if ((event.attrs.value.substring(0, 1) === '-') && (token.value === event.attrs.value.substring(1))) {
+
+                  tokenlabel = $(".token").filter(function(){ return $(this).find("span").text() === event.attrs.value.substring(1)});
+                  tokenlabel.css("background", "red");
+                  tokenlabel.find("span").text("-" + token.value)
+
+                  token.value = '-' + token.value;
+                  token.label = '-' + token.label;
+
+                  event.preventDefault();
+
+
+              }
+              // if input is -tag and tag doesnt exist.
+              else if ((event.attrs.value.substring(0, 1) === '-') && (token.value !== event.attrs.value.substring(1))) {
+
+                  $textarea.data('bs.tokenfield').$input.val('');
+
+                  event.preventDefault();
+
+              }
+
+              // if -tag exists and input is tag
+              if (token.value.substring(0, 1) === '-' && event.attrs.value === token.value.substring(1)) {
+
+
+                  tokenlabel = $(".token").filter(function(){ return $(this).find("span").text() === "-" + event.attrs.value});
+                  tokenlabel.css("background", "");
+                  tokenlabel.find("span").text(event.attrs.value)
+
+                  token.value = event.attrs.value;
+                  token.label = event.attrs.label;
+
+                  $textarea.data('bs.tokenfield').$input.val('');
+
+                  event.preventDefault();
+              }
+
+           });
+      });
 
 
       $('#form').submit(function(){
