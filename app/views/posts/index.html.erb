@@ -1,7 +1,17 @@
 <div id="c-posts">
   <div id="a-index">
-    <aside id="sidebar">
+      <div class="search_container">
+       <button id="sidebar_toggle" class="fa fa-bars"></button>
       <%= render "posts/partials/common/search", :path => posts_path, :tags => params[:tags], :tags_dom_id => "tags" %>
+      </div>
+
+      <script>
+      $("#sidebar_toggle").click(function() {
+          $("#sidebar").toggleClass("sidebar_hidden");
+          $("#content").toggleClass("sidebar_hidden");
+      });
+      </script>
+      <aside id="sidebar" class="sidebar_hidden">
 
       <%= render "posts/partials/index/mode_menu" %>
 
@@ -9,7 +19,7 @@
 
       <%= raw common_searches_html(CurrentUser.user) %>
 
-      <section id="tag-box">
+      <section id="tag-box" class="card">
         <h1>Tags</h1>
         <%= @post_set.presenter.tag_list_html(self) %>
       </section>
@@ -17,7 +27,7 @@
       <%= render "posts/partials/index/related" %>
     </aside>
 
-    <section id="content">
+    <section id="content" class="sidebar_hidden">
       <menu id="post-sections">
         <li class="active"><a href="#" id="show-posts-link">Posts</a></li>
 
@@ -38,7 +48,7 @@
       <%= render "posts/partials/index/excerpt", :post_set => @post_set %>
       <%= render "posts/partials/index/posts", :post_set => @post_set %>
     </section>
-    
+
     <% content_for(:page_title) do %>
       <% if @post_set.tag_string.present? %>
         <%= @post_set.humanized_tag_string %> - <%= Danbooru.config.app_name %>

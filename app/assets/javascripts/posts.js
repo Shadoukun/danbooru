@@ -725,6 +725,17 @@
       $("#replace-image-dialog").dialog("open");
     });
   };
+
+  Danbooru.Post.hide_sidebar = function() {
+        $("#sidebar").css("margin-left", "-16em");
+        $("#content").css("margin-left", "0");
+  };
+
+  Danbooru.Post.show_sidebar = function() {
+      $("#content").css("margin-left", "16em");
+      $("#sidebar").css("margin-left", "0");
+  }
+
 })();
 
 
@@ -732,6 +743,5 @@
 $(document).ready(function() {
   Danbooru.Post.initialize_all();
   Danbooru.Post.initialize_tokenfield();
-
 
 });

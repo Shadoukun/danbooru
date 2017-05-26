@@ -1,7 +1,5 @@
-//= require jquery-1.11.1.min.js
 //= require jquery.hotkeys.js
 //= require jquery.timeout.js
-//= require jquery-ui
 //= require jquery-ui-autocomplete-custom.js
 //= require jquery.storageapi.js
 //= require jquery.dropdown.min.js
@@ -10,4 +8,3 @@
 //= require rails.js
 //= require common.js
 //= require_tree .
-

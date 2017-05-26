@@ -2,11 +2,25 @@ div.ui-dialog {
   overflow: visible;
   font-size: 1em;
   z-index: 999 !important;
+  border:lightgray solid 1px;
+  padding: 0;
 
   ul {
     margin-left: 1em;
     margin-bottom: 1em;
   }
+}
+
+div.ui-dialog-titlebar {
+	border:none;
+	border-radius:0;
+	background:lightgray;
+
+}
+
+.ui-button {
+	background:none !important;
+	border:none !important;
 }
 
 .ui-state-highlight {
@@ -17,4 +31,40 @@ div.ui-dialog {
 .ui-state-error {
   border: 1px solid #FBC7C6;
   background: #FDDFDE;
+}
+
+#quick-edit-modal .modal-dialog {
+    max-width:1200px;
+
+    .radio {
+        display:inline-block;
+    }
+
+    .btn {
+        padding:10px;
+        box-shadow: none;
+        margin:1em 0 0 0;
+    }
+
+    input[type="submit"] {
+        margin-left:85%;
+    }
+
+    .tokenfield {
+        height:200px;
+        width: 100% !important;
+    }
+
+    #edit-tags {
+
+        .btn {
+            margin: 10px 0 0 0 !important;
+        }
+    }
+
+    #edit-source {
+        width: 55%;
+    }
+
+
 }

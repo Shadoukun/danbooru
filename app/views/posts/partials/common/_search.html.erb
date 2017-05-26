@@ -3,8 +3,7 @@
 - tags
  -->
 
-<section id="search-box">
-  <h1>Search</h1>
+<section id="search-box" >
   <%= form_tag(path, :method => "get") do %>
     <%= text_field_tag("tags", tags, :size => 20, :id => tags_dom_id, :data => { :autocomplete => "tag-query" }) %>
     <% if params[:raw] %>
@@ -16,10 +15,10 @@
     <%= hidden_field_tag "ms", "1" %>
 
     <%= content_tag :button, :type => :submit do %>
-	<span class="glyphicon glyphicon-search search-glyph"></span>
+	<span class="fa fa-search"></span>
     <% end %>
 
-    <%= submit_tag "+", :id => "expand-search", "data-jq-dropdown" => "#search-dropdown" %>
+    <%# <%= submit_tag "+", :id => "expand-search", "data-jq-dropdown" => "#search-dropdown" %>
     <div id="search-dropdown" class="jq-dropdown jq-dropdown-tip">
       <ul class="jq-dropdown-menu">
         <% if SavedSearch.enabled? && CurrentUser.show_saved_searches? %>

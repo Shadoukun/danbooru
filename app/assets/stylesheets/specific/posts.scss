@@ -1,8 +1,8 @@
 @import "../common/000_vars.scss";
 
 article.post-preview {
-  height: 154px;
-  width: 154px;
+  height: 254px;
+  width: 254px;
   margin: 0 10px 10px 0;
   float: left;
   overflow: hidden;
@@ -83,7 +83,7 @@ a.blacklisted-active {
   &.post-status-has-parent img {
     border-color: $preview_has_parent_color;
   }
-  
+
   &.post-status-has-children.post-status-has-parent img {
     border-color: $preview_has_children_color $preview_has_parent_color $preview_has_parent_color $preview_has_children_color;
   }
@@ -154,7 +154,7 @@ body[data-can-approve-posts="true"] .post-preview {
 #has-parent-relationship-preview, #has-children-relationship-preview {
   overflow-x: auto;
   white-space: nowrap;
-  
+
   article.post-preview {
     float: none;
     width: auto;
@@ -165,7 +165,8 @@ body[data-can-approve-posts="true"] .post-preview {
 }
 
 .category-0 a, a.tag-type-0, .ui-state-focus a.tag-type-0 {
-  color: $link_color;
+  color: $primary_tag_color;
+  background: $primary_tag_color;
 
   &:hover {
     color: $link_hover_color;
@@ -173,7 +174,8 @@ body[data-can-approve-posts="true"] .post-preview {
 }
 
 .category-1 a, a.tag-type-1, .ui-state-focus a.tag-type-1 {
-  color: #A00;
+  color: $artist_tag_color;
+  background-color: $artist_tag_color;
 
   &:hover {
     color: #B66;
@@ -181,7 +183,8 @@ body[data-can-approve-posts="true"] .post-preview {
 }
 
 .category-3 a, a.tag-type-3, .ui-state-focus a.tag-type-3 {
-  color: #A0A;
+  color: $copyright_tag_color;
+  background-color: $copyright_tag_color;
 
   &:hover {
     color: #B6B;
@@ -189,12 +192,30 @@ body[data-can-approve-posts="true"] .post-preview {
 }
 
 .category-4 a, a.tag-type-4, .ui-state-focus a.tag-type-4 {
-  color: #0A0;
+  color: $character_tag_color;
+  background: $character_tag_color;
 
   &:hover {
     color: #6B6;
   }
 }
+
+
+li[class^='category-'] {
+  margin-bottom: 4px;
+
+  .badge {
+      color: white;
+      box-shadow:none;
+  }
+
+  .wiki-link {
+      // Remove background from wiki-linik <a>
+      background:none;
+  }
+}
+
+
 
 .category-banned a, a.tag-type-banned,, .ui-state-focus a.tag-type-banned {
   color: black;
@@ -202,6 +223,8 @@ body[data-can-approve-posts="true"] .post-preview {
 }
 
 .post-count {
+  align-self:center;
+  margin-left:5px !important;
   color: #CCC;
   margin-left: 0.2em;
 }
@@ -429,7 +452,7 @@ div#c-posts {
       right: 5px;
       cursor: pointer;
     }
-    
+
     div.comments-for-post {
       width:100%
     }

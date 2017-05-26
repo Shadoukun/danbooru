@@ -17,17 +17,17 @@
   }
 
   Danbooru.PostModeMenu.show_notice = function(i) {
-    Danbooru.notice("Switched to tag script #" + i + ". To switch tag scripts, use the number keys.");    
+    Danbooru.notice("Switched to tag script #" + i + ". To switch tag scripts, use the number keys.");
   }
-  
+
   Danbooru.PostModeMenu.change_tag_script = function(e) {
     if ($("#mode-box select").val() === "tag-script") {
       var old_tag_script_id = Danbooru.Cookie.get("current_tag_script_id") || "1";
       var old_tag_script = $("#tag-script-field").val();
-      
+
       var new_tag_script_id = String.fromCharCode(e.which);
       var new_tag_script = Danbooru.Cookie.get("tag-script-" + new_tag_script_id);
-    
+
       $("#tag-script-field").val(new_tag_script);
       Danbooru.Cookie.put("current_tag_script_id", new_tag_script_id);
       if (old_tag_script_id != new_tag_script_id) {
@@ -57,7 +57,7 @@
   }
 
   Danbooru.PostModeMenu.initialize_edit_form = function() {
-    $("#quick-edit-div").hide();
+    $("#quick-edit-modal").hide();
     $("#quick-edit-form input[value=Cancel]").click(function(e) {
       Danbooru.PostModeMenu.close_edit_form();
       e.preventDefault();
@@ -88,7 +88,7 @@
   }
 
   Danbooru.PostModeMenu.close_edit_form = function() {
-    $("#quick-edit-div").slideUp("fast");
+    $("#quick-edit-modal").slideUp("fast");
     if (Danbooru.meta("enable-auto-complete") === "true") {
       $("#post_tag_string").data("uiAutocomplete").close();
     }
@@ -109,7 +109,7 @@
   }
 
   Danbooru.PostModeMenu.change = function() {
-    $("#quick-edit-div").slideUp("fast");
+    $("#quick-edit-modal").slideUp("fast");
     var s = $("#mode-box select").val();
     if (s === undefined) {
       return;
@@ -136,9 +136,22 @@
 
   Danbooru.PostModeMenu.open_edit = function(post_id) {
     var $post = $("#post_" + post_id);
-    $("#quick-edit-div").slideDown("fast");
-    $("#quick-edit-form").attr("action", "/posts/" + post_id + ".json");
-    $("#post_tag_string").val($post.data("tags") + " ").focus().selectEnd().height($("#post_tag_string")[0].scrollHeight);
+
+    $.ajax({
+        url:"http://69.250.3.46/posts/" + post_id,
+        type:'GET',
+        success: function(data){
+            $("#quick-edit-modal .modal-body .image_container").html($(data).find('#image-container img'));
+		    $(".image_container img").imageResize();
+		    $("#edit-form-container").html($(data).find("section#edit .simple_form"));
+            console.log($(data).find("section#edit .simple_form"));
+            Danbooru.Post.initialize_tokenfield();
+	        $("#quick-edit-modal").modal()
+        }
+    });
+
+    //$("#quick-edit-form").attr("action", "/posts/" + post_id + ".json");
+    //$("#post_tag_string").val($post.data("tags") + " ").focus().selectEnd().height($("#post_tag_string")[0].scrollHeight);
   }
 
   Danbooru.PostModeMenu.click = function(e) {

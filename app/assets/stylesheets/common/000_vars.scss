@@ -1,8 +1,14 @@
-$menu_color: #F5F5FF;
+$primary_color: #2761d0;
+$menu_color: #333;
 $link_color: hsl(213, 100%, 50%);
 $link_hover_color: lighten($link_color, 25%);
 $link_dark_color: darken($link_color, 25%);
 $highlight_color: lighten($link_color, 45%);
+
+$primary_tag_color: #0073ff;
+$artist_tag_color: #bc3c39;
+$character_tag_color: #52b052;
+$copyright_tag_color: #b637b6;
 $h1_size: 2em;
 $h2_size: 1.5em;
 $h3_size: 1.16667em;
@@ -69,7 +75,7 @@ $success_color: hsl(120, 100%, 95%); // light green
   position: absolute;
   width: 20px;
   height: 20px;
-  color: white; 
+  color: white;
   background-color: rgba(0,0,0,0.5);
   margin: 2px;
   text-align: center;
@@ -80,7 +86,7 @@ $success_color: hsl(120, 100%, 95%); // light green
   position: absolute;
   width: 20px;
   height: 20px;
-  color: white; 
+  color: white;
   background-color: rgba(0,0,0,0.5);
   margin: 2px;
   text-align: center;

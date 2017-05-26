@@ -1,0 +1,47 @@
+@import "000_vars.scss";
+
+
+
+#edit-dialog .tokenfield {
+	min-height:10em;
+	width:100% !important;
+}
+
+.token-label {
+    max-width: none !important;
+}
+
+.bootstrap-tagsinput input {
+	width:auto !important;
+}
+
+.bootstrap-tagsinput .tag {
+    padding: 6px;
+    font-size: 12px;
+    display: inline-block;
+    margin-bottom: 5px;
+}
+
+
+.checkbox-locks  {
+    display: inline-block;
+
+        label::after {
+        // Weird bug with the check symbol offset?
+        top: -5px !important;
+        }
+}
+
+// #sidebar {
+    // width: auto !important;
+    // float: none !important;
+    //
+// }
+//
+// div#page aside#sidebar > section {
+    // display:inline-block;
+// }
+//
+// div#page section#content {
+    // margin-left:0;
+// }

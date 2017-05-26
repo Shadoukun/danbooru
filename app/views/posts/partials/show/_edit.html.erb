@@ -15,6 +15,19 @@
   <%= f.hidden_field :old_source, :value => post.source %>
   <%= f.hidden_field :old_rating, :value => post.rating %>
 
+  <div class="input" id="edit-tags">
+    <div>
+      <%= f.label :tag_string, "Tags" %>
+      <%= f.text_area :tag_string, :size => "50x5", :value => post.presenter.categorized_tag_string + " ", :data => { :autocomplete => "tag-edit" } %>
+      <span id="open-edit-dialog" class="ui-icon ui-icon-arrow-1-ne" title="detach" style="display: none;"/>
+    </div>
+
+    <%= button_tag "Related tags", :class => "btn btn-primary", :id => "related-tags-button", :type => "button" %>
+    <%= button_tag "Artists", :class => "btn btn-primary", :id => "related-artists-button", :type => "button" %>
+    <%= button_tag "Characters", :class => "btn btn-primary", :id => "related-characters-button", :type => "button" %>
+    <%= button_tag "Copyrights", :class => "btn btn-primary", :id => "related-copyrights-button", :type => "button" %>
+  </div>
+
   <div class="input">
     <% if post.is_rating_locked? %>
       This post is rating locked.
@@ -22,22 +35,29 @@
       <%= f.label :blank, "Rating" %>
 
       <fieldset class="ratings">
-        <%= f.radio_button :rating, :e %>
-        <%= f.label :rating_e, "Explicit" %>
 
+        <div class="radio radio-primary">
+        <%= f.radio_button :rating, :e, :id => 'radio1' %>
+        <%= f.label :rating_e, "Explicit", :for => 'radio1' %>
+        </div>
+        <div class="radio radio-primary">
         <%= f.radio_button :rating, :q %>
         <%= f.label :rating_q, "Questionable" %>
-
+        </div>
+        <div class="radio radio-primary">
         <%= f.radio_button :rating, :s %>
         <%= f.label :rating_s, "Safe" %>
+        </div>
       </fieldset>
     <% end %>
   </div>
 
   <% unless post.is_note_locked? %>
     <div class="input">
-      <%= f.label :has_embedded_notes, "Embed notes" %>
+        <div class="checkbox checkbox-primary">
       <%= f.check_box :has_embedded_notes %>
+      <%= f.label :has_embedded_notes, "Embed notes" %>
+  </div>
     </div>
   <% end %>
 
@@ -46,15 +66,19 @@
       <%= f.label :blank, "Lock" %>
 
       <fieldset class="locks">
+        <div class="checkbox checkbox-primary checkbox-locks">
         <%= f.check_box :is_note_locked %>
         <%= f.label :is_note_locked, "Notes" %>
-
+        </div>
+        <div class="checkbox checkbox-primary checkbox-locks">
         <%= f.check_box :is_rating_locked %>
         <%= f.label :is_rating_locked, "Rating" %>
-
+        </div>
         <% if CurrentUser.is_admin? %>
+          <div class="checkbox checkbox-primary checkbox-locks">
           <%= f.check_box :is_status_locked %>
           <%= f.label :is_status_locked, "Status" %>
+        </div>
         <% end %>
       </fieldset>
     </div>
@@ -65,32 +89,21 @@
     <%= f.text_field :parent_id, :size => 5 %>
   </div>
 
-  <div class="input">
+  <div class="input" id="edit-source">
     <%= f.label :source %>
     <%= f.text_field :source %>
-    <%= button_tag "Similar", :class => "btn", :id => "similar-button", :type => "button" %>
-    <%= button_tag "Artist", :class => "btn", :id => "find-artist-button", :type => "button" %>
+    <%= button_tag "Similar", :class => "btn btn-primary", :id => "similar-button", :type => "button" %>
+    <%= button_tag "Artist", :class => "btn btn-primary", :id => "find-artist-button", :type => "button" %>
   </div>
 
   <% if Danbooru.config.iqdbs_server %>
     <div class="input" id="iqdb-similar" style="display: none;"></div>
   <% end %>
 
-  <div class="input">
-    <div>
-      <%= f.label :tag_string, "Tags" %>
-      <%= f.text_area :tag_string, :size => "50x5", :value => post.presenter.categorized_tag_string + " ", :data => { :autocomplete => "tag-edit" } %>
-      <span id="open-edit-dialog" class="ui-icon ui-icon-arrow-1-ne" title="detach" style="display: none;"/>
-    </div>
 
-    <%= button_tag "Related tags", :class => "btn", :id => "related-tags-button", :type => "button" %>
-    <%= button_tag "Artists", :class => "btn", :id => "related-artists-button", :type => "button" %>
-    <%= button_tag "Characters", :class => "btn", :id => "related-characters-button", :type => "button" %>
-    <%= button_tag "Copyrights", :class => "btn", :id => "related-copyrights-button", :type => "button" %>
-  </div>
 
   <div class="input">
-    <%= submit_tag "Submit", :class => "btn", :data => { :disable_with => "Submitting..." } %>
+    <%= submit_tag "Submit", :class => "btn btn-success", :data => { :disable_with => "Submitting..." } %>
   </div>
 
   <div id="related-tags-container">
@@ -99,4 +112,3 @@
     </div>
   </div>
 <% end %>
-

@@ -1,5 +1,5 @@
 <% if CurrentUser.is_gold? %>
-  <section id="mode-box">
+  <section id="mode-box" class="card">
     <h1>Mode</h1>
     <form action="/">
       <select name="mode">
@@ -27,4 +27,7 @@
     </form>
     <input id="tag-script-field" data-autocomplete="tag-edit" placeholder="Enter tag script" style="display: none; margin-top: 0.5em;"></input>
   </section>
+  <script>
+      console.log($("select[name='mode']").val());
+  </script>
 <% end %>

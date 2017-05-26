@@ -159,4 +159,42 @@
     }
     return this;
   }
+
+  $.fn.imageResize = function( options ) {
+
+        var settings = {
+            width: 500,
+            height: 500
+        };
+
+        options = $.extend( settings, options );
+
+
+        return this.each(function() {
+			var $element = $( this );
+            var maxWidth = options.width;
+            var maxHeight = options.height;
+            var ratio = 0;
+            var width = $element.width();
+            var height = $element.height();
+
+            if ( width > maxWidth ) {
+                ratio = maxWidth / width;
+
+                $element.css( "width", maxWidth );
+                $element.css( "height", height * ratio );
+
+            }
+
+            if ( height > maxHeight ) {
+                ratio = maxHeight / height;
+
+                $element.css( "height", maxHeight );
+                $element.css( "width", width * ratio );
+
+            }
+
+        });
+
+    };
 })();
